@@ -1,0 +1,47 @@
+# Environment variables and secrets
+.env
+.env.local
+webapp/.env.local
+webapp/.env
+
+# Dependencies and build outputs
+node_modules/
+webapp/node_modules/
+dist/
+webapp/dist/
+webapp/.npm-cache/
+.pnpm-store/
+
+# Log files
+*.log
+webapp/*.log
+webapp/node-server.err.log
+webapp/node-server.out.log
+webapp/ps-vite.err.log
+webapp/ps-vite.out.log
+webapp/serve-dist.err.log
+webapp/serve-dist.out.log
+webapp/vite-node.err.log
+webapp/vite-node.out.log
+webapp/vite.err.log
+webapp/vite.out.log
+webapp/tmp-api-err.log
+webapp/tmp-api-out.log
+webapp/tmp-serve-err.log
+webapp/tmp-serve-out.log
+webapp/tmp-supabase-vite-err.log
+webapp/tmp-supabase-vite-out.log
+
+# Temporary test outputs/screenshots
+tmp-*
+webapp/tmp-*
+tmp-*.png
+tmp-*.json
+webapp/tmp-*.png
+webapp/tmp-*.json
+
+# Editor / System files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

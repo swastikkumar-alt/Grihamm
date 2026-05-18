@@ -1,0 +1,1207 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Grihamm — MVP Prototype</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Josefin+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        colors: {
+          cream: '#FBF6EE',
+          paper: '#F4ECDD',
+          ink: '#1A1A1A',
+          muted: '#5C5C5C',
+          line: '#E5DDC9',
+          teal: { DEFAULT: '#1F4E4A', deep: '#143734', soft: '#2E6E68' },
+          terracotta: { DEFAULT: '#C75B39', dark: '#A8482A', soft: '#E08A6E' },
+          gold: '#D4A24C',
+          ok: '#2F7D4F',
+          warn: '#B8862B',
+          err: '#B23A3A',
+        },
+        fontFamily: {
+          display: ['Cinzel', 'serif'],
+          sans: ['"Josefin Sans"', 'system-ui', 'sans-serif'],
+        },
+      }
+    }
+  }
+</script>
+<style>
+  html { scroll-behavior: smooth; }
+  body { font-family: 'Josefin Sans', system-ui, sans-serif; background: #FBF6EE; color: #1A1A1A; }
+  .font-display { font-family: 'Cinzel', serif; letter-spacing: 0.02em; }
+  .screen { display: none; }
+  .screen.active { display: block; }
+  .tab-btn[aria-selected="true"] { background: #143734; color: #FBF6EE; }
+  .tab-btn[aria-selected="true"] svg { color: #D4A24C; }
+  .step-dot.done { background: #2F7D4F; border-color: #2F7D4F; color: #fff; }
+  .step-dot.active { background: #C75B39; border-color: #C75B39; color: #fff; }
+  .step-dot.pending { background: #FBF6EE; border-color: #E5DDC9; color: #5C5C5C; }
+  .step-line.done { background: #2F7D4F; }
+  .step-line.pending { background: #E5DDC9; }
+  details > summary { list-style: none; cursor: pointer; }
+  details > summary::-webkit-details-marker { display: none; }
+  @media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; animation: none !important; }
+  }
+  .scroll-x { -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+  .scroll-x::-webkit-scrollbar { display: none; }
+  /* focus visibility */
+  :focus-visible { outline: 2px solid #C75B39; outline-offset: 2px; border-radius: 6px; }
+</style>
+</head>
+<body class="min-h-screen">
+
+<!-- Top Brand Bar -->
+<header class="bg-teal-deep text-cream">
+  <div class="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
+    <div class="flex items-center gap-3">
+      <!-- Logo mark (SVG) -->
+      <svg viewBox="0 0 32 32" class="w-8 h-8 text-gold" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
+        <path d="M4 16 L16 5 L28 16 V27 H4 Z"/>
+        <path d="M13 27 V18 H19 V27" />
+        <circle cx="16" cy="13" r="0.9" fill="currentColor"/>
+      </svg>
+      <div class="leading-tight">
+        <div class="font-display text-lg">GRIHAMM</div>
+        <div class="text-[10px] tracking-[0.3em] text-cream/70 uppercase">Bangalore MVP</div>
+      </div>
+    </div>
+    <div class="hidden sm:flex items-center gap-2 text-xs text-cream/80">
+      <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-cream/10">
+        <svg class="w-3.5 h-3.5 text-gold" viewBox="0 0 20 20" fill="currentColor"><path d="M10 2l2.39 4.84L18 7.7l-4 3.9L14.78 17 10 14.42 5.22 17 6 11.6l-4-3.9 5.61-.86L10 2z"/></svg>
+        13 yrs experience · 9 verified partners
+      </span>
+    </div>
+  </div>
+</header>
+
+<!-- Tab Bar -->
+<nav aria-label="Primary" class="sticky top-0 z-30 bg-cream/95 backdrop-blur border-b border-line">
+  <div class="max-w-5xl mx-auto px-2">
+    <div class="flex overflow-x-auto scroll-x gap-1 py-2" role="tablist">
+      <button class="tab-btn shrink-0 inline-flex items-center gap-2 px-3 py-2 rounded-full text-sm font-medium border border-line bg-cream text-ink hover:bg-paper transition-colors duration-200 cursor-pointer" data-tab="book" aria-selected="false" role="tab">
+        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/></svg>
+        Book
+      </button>
+      <button class="tab-btn shrink-0 inline-flex items-center gap-2 px-3 py-2 rounded-full text-sm font-medium border border-line bg-cream text-ink hover:bg-paper transition-colors duration-200 cursor-pointer" data-tab="contractors" aria-selected="true" role="tab">
+        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="8" r="3.2"/><path d="M5 20c1.4-3.6 4.2-5.5 7-5.5s5.6 1.9 7 5.5"/></svg>
+        Contractors
+      </button>
+      <button class="tab-btn shrink-0 inline-flex items-center gap-2 px-3 py-2 rounded-full text-sm font-medium border border-line bg-cream text-ink hover:bg-paper transition-colors duration-200 cursor-pointer" data-tab="tracker" aria-selected="false" role="tab">
+        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 12h4l3-7 4 14 3-7h2"/></svg>
+        Tracker
+      </button>
+      <button class="tab-btn shrink-0 inline-flex items-center gap-2 px-3 py-2 rounded-full text-sm font-medium border border-line bg-cream text-ink hover:bg-paper transition-colors duration-200 cursor-pointer" data-tab="wallet" aria-selected="false" role="tab">
+        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M16 12h3"/><path d="M3 9h18"/></svg>
+        Escrow Wallet
+      </button>
+      <button class="tab-btn shrink-0 inline-flex items-center gap-2 px-3 py-2 rounded-full text-sm font-medium border border-line bg-cream text-ink hover:bg-paper transition-colors duration-200 cursor-pointer" data-tab="audit" aria-selected="false" role="tab">
+        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M12 3l8 4v5c0 5-3.6 8.5-8 9-4.4-.5-8-4-8-9V7l8-4z"/><path d="M9 12l2 2 4-4"/></svg>
+        Audit & Refund
+      </button>
+      <button class="tab-btn shrink-0 inline-flex items-center gap-2 px-3 py-2 rounded-full text-sm font-medium border border-line bg-cream text-ink hover:bg-paper transition-colors duration-200 cursor-pointer" data-tab="partner" aria-selected="false" role="tab">
+        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M16 11V7a4 4 0 00-8 0v4"/><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M9 16h6"/></svg>
+        Partner View
+      </button>
+    </div>
+  </div>
+</nav>
+
+<main class="max-w-5xl mx-auto px-4 pb-24 pt-6">
+
+<!-- ============== SCREEN 1: BOOK ============== -->
+<section id="screen-book" class="screen" role="tabpanel" aria-labelledby="tab-book">
+  <div class="grid md:grid-cols-5 gap-6">
+    <div class="md:col-span-3">
+      <p class="text-xs tracking-[0.25em] uppercase text-terracotta">Step 1 of 3</p>
+      <h1 class="font-display text-3xl sm:text-4xl mt-1 text-teal-deep">Tell us about your home.</h1>
+      <p class="text-muted mt-2 max-w-prose">A senior project manager will review your brief within 24 hours. No design fees. No call centre. Funds stay in your wallet until each milestone is photo-verified.</p>
+
+      <form class="mt-6 space-y-5 bg-white border border-line rounded-2xl p-5 sm:p-6" onsubmit="event.preventDefault(); goTo('contractors');">
+        <div>
+          <label class="block text-sm font-medium text-ink mb-2" for="hometype">Home type</label>
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-2" id="hometype" role="radiogroup">
+            <label class="cursor-pointer">
+              <input type="radio" name="ht" class="peer sr-only" checked>
+              <span class="block text-center text-sm py-3 rounded-xl border border-line bg-cream peer-checked:bg-teal-deep peer-checked:text-cream peer-checked:border-teal-deep transition-colors duration-200">2 BHK</span>
+            </label>
+            <label class="cursor-pointer">
+              <input type="radio" name="ht" class="peer sr-only">
+              <span class="block text-center text-sm py-3 rounded-xl border border-line bg-cream peer-checked:bg-teal-deep peer-checked:text-cream peer-checked:border-teal-deep transition-colors duration-200">3 BHK</span>
+            </label>
+            <label class="cursor-pointer">
+              <input type="radio" name="ht" class="peer sr-only">
+              <span class="block text-center text-sm py-3 rounded-xl border border-line bg-cream peer-checked:bg-teal-deep peer-checked:text-cream peer-checked:border-teal-deep transition-colors duration-200">4 BHK</span>
+            </label>
+            <label class="cursor-pointer">
+              <input type="radio" name="ht" class="peer sr-only">
+              <span class="block text-center text-sm py-3 rounded-xl border border-line bg-cream peer-checked:bg-teal-deep peer-checked:text-cream peer-checked:border-teal-deep transition-colors duration-200">Villa</span>
+            </label>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-ink mb-2" for="area">Carpet area (sq ft)</label>
+          <input id="area" type="number" value="1180" class="w-full rounded-xl border border-line bg-cream px-4 py-3 focus:border-teal-deep focus:bg-white transition-colors duration-200" />
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-ink mb-2" for="loc">Locality (Bangalore only — pilot)</label>
+          <select id="loc" class="w-full rounded-xl border border-line bg-cream px-4 py-3 focus:border-teal-deep focus:bg-white transition-colors duration-200">
+            <option>Whitefield</option><option>HSR Layout</option><option>Indiranagar</option>
+            <option>Electronic City</option><option>Sarjapur Road</option><option>Hebbal</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-ink mb-2">Approx. budget</label>
+          <div class="flex items-center gap-3">
+            <input type="range" min="100000" max="2000000" step="25000" value="300000" id="budget" class="flex-1 accent-terracotta">
+            <output id="budgetOut" class="font-display text-lg text-teal-deep">₹3,00,000</output>
+          </div>
+          <p class="text-xs text-muted mt-1">Released milestone-by-milestone. You always control the wallet.</p>
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-ink mb-2">Scope</label>
+          <div class="flex flex-wrap gap-2">
+            <span class="px-3 py-1.5 text-xs rounded-full bg-paper border border-line">Civil</span>
+            <span class="px-3 py-1.5 text-xs rounded-full bg-paper border border-line">Modular Kitchen</span>
+            <span class="px-3 py-1.5 text-xs rounded-full bg-paper border border-line">Carpentry</span>
+            <span class="px-3 py-1.5 text-xs rounded-full bg-paper border border-line">Electrical</span>
+            <span class="px-3 py-1.5 text-xs rounded-full bg-paper border border-line">False Ceiling</span>
+            <span class="px-3 py-1.5 text-xs rounded-full bg-paper border border-line">Paint</span>
+            <span class="px-3 py-1.5 text-xs rounded-full bg-terracotta-soft/40 border border-terracotta text-terracotta-dark">+ Add</span>
+          </div>
+        </div>
+
+        <!-- Optional: Tell us more -->
+        <details class="border border-line rounded-xl bg-cream group">
+          <summary class="flex items-center justify-between p-4 hover:bg-paper transition-colors duration-200 rounded-xl">
+            <div class="flex items-center gap-2">
+              <svg class="w-5 h-5 text-terracotta" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+              <div>
+                <div class="text-sm font-medium">Tell us more <span class="text-muted font-normal">(optional)</span></div>
+                <div class="text-xs text-muted">Share photos, drawings or a Pinterest screenshot — anything you have</div>
+              </div>
+            </div>
+            <svg class="w-5 h-5 text-muted transition-transform duration-200 group-open:rotate-180" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+          </summary>
+
+          <div class="px-4 pb-5 pt-1 space-y-4">
+            <!-- Free-text -->
+            <div>
+              <label class="block text-sm font-medium mb-2" for="brief">Anything specific the PM should know?</label>
+              <textarea id="brief" rows="3" class="w-full rounded-xl border border-line bg-white px-4 py-3 focus:border-teal-deep transition-colors duration-200 text-sm" placeholder="e.g. 8-month-old baby at home, prefer minimal dust days · planning to keep existing wardrobe in master bedroom · vastu compliance needed for kitchen…"></textarea>
+            </div>
+
+            <!-- Upload zones -->
+            <div>
+              <div class="text-sm font-medium mb-2">Attach files <span class="text-muted font-normal">(any of these — or none)</span></div>
+              <div class="grid sm:grid-cols-2 gap-3">
+
+                <!-- Floor plan -->
+                <label class="block rounded-xl border-2 border-dashed border-line bg-white hover:border-terracotta hover:bg-terracotta-soft/10 transition-colors duration-200 cursor-pointer p-4">
+                  <input type="file" accept="application/pdf,image/*" multiple class="sr-only upload-input" data-bucket="plan">
+                  <div class="flex items-start gap-3">
+                    <span class="w-10 h-10 rounded-lg bg-paper text-teal-deep flex items-center justify-center shrink-0">
+                      <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M4 9h16M9 3v18M9 14h6"/></svg>
+                    </span>
+                    <div class="min-w-0">
+                      <div class="text-sm font-medium">Floor plan / drawings</div>
+                      <div class="text-xs text-muted">Builder PDF, architect plan, sketch on paper</div>
+                      <div class="text-[11px] text-terracotta mt-1 file-count" data-for="plan"></div>
+                    </div>
+                  </div>
+                </label>
+
+                <!-- Current photos -->
+                <label class="block rounded-xl border-2 border-dashed border-line bg-white hover:border-terracotta hover:bg-terracotta-soft/10 transition-colors duration-200 cursor-pointer p-4">
+                  <input type="file" accept="image/*" multiple class="sr-only upload-input" data-bucket="current">
+                  <div class="flex items-start gap-3">
+                    <span class="w-10 h-10 rounded-lg bg-paper text-teal-deep flex items-center justify-center shrink-0">
+                      <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="11" r="2"/><path d="M21 17l-5-5-9 9"/></svg>
+                    </span>
+                    <div class="min-w-0">
+                      <div class="text-sm font-medium">Current home photos</div>
+                      <div class="text-xs text-muted">Each room as it is today — wide shots are best</div>
+                      <div class="text-[11px] text-terracotta mt-1 file-count" data-for="current"></div>
+                    </div>
+                  </div>
+                </label>
+
+                <!-- Inspiration -->
+                <label class="block rounded-xl border-2 border-dashed border-line bg-white hover:border-terracotta hover:bg-terracotta-soft/10 transition-colors duration-200 cursor-pointer p-4">
+                  <input type="file" accept="image/*" multiple class="sr-only upload-input" data-bucket="inspo">
+                  <div class="flex items-start gap-3">
+                    <span class="w-10 h-10 rounded-lg bg-paper text-teal-deep flex items-center justify-center shrink-0">
+                      <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 3l2.39 4.84L20 8.7l-4 3.9L17 18l-5-2.6L7 18l1-5.4-4-3.9 5.61-.86z"/></svg>
+                    </span>
+                    <div class="min-w-0">
+                      <div class="text-sm font-medium">Inspiration / references</div>
+                      <div class="text-xs text-muted">Pinterest, Instagram, magazine screenshots</div>
+                      <div class="text-[11px] text-terracotta mt-1 file-count" data-for="inspo"></div>
+                    </div>
+                  </div>
+                </label>
+
+                <!-- Other -->
+                <label class="block rounded-xl border-2 border-dashed border-line bg-white hover:border-terracotta hover:bg-terracotta-soft/10 transition-colors duration-200 cursor-pointer p-4">
+                  <input type="file" multiple class="sr-only upload-input" data-bucket="other">
+                  <div class="flex items-start gap-3">
+                    <span class="w-10 h-10 rounded-lg bg-paper text-teal-deep flex items-center justify-center shrink-0">
+                      <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M14 3H6a2 2 0 00-2 2v14a2 2 0 002 2h12a2 2 0 002-2V9z"/><path d="M14 3v6h6"/></svg>
+                    </span>
+                    <div class="min-w-0">
+                      <div class="text-sm font-medium">Anything else</div>
+                      <div class="text-xs text-muted">BOQ from another vendor, voice note, video walkthrough</div>
+                      <div class="text-[11px] text-terracotta mt-1 file-count" data-for="other"></div>
+                    </div>
+                  </div>
+                </label>
+              </div>
+
+              <!-- File list -->
+              <ul id="upload-list" class="mt-3 space-y-2 hidden"></ul>
+            </div>
+
+            <!-- AI assistant tease -->
+            <div class="flex items-start gap-3 rounded-xl bg-teal-deep/5 border border-teal-deep/15 p-3">
+              <span class="w-8 h-8 rounded-full bg-teal-deep text-gold flex items-center justify-center shrink-0">
+                <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+              </span>
+              <div class="text-xs text-muted">
+                <b class="text-teal-deep">Coming soon —</b> our AI brief assistant will read what you share and ask 3-4 quick follow-ups (e.g. "Is the TV wall the one to keep?") so the PM walks in already understanding your home.
+              </div>
+            </div>
+          </div>
+        </details>
+
+        <button type="submit" class="w-full inline-flex items-center justify-center gap-2 bg-terracotta hover:bg-terracotta-dark text-cream font-medium py-3.5 rounded-xl transition-colors duration-200 cursor-pointer">
+          See verified contractors near you
+          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M5 12h14M13 5l7 7-7 7"/></svg>
+        </button>
+      </form>
+    </div>
+
+    <aside class="md:col-span-2">
+      <div class="bg-teal-deep text-cream rounded-2xl p-6">
+        <p class="text-xs tracking-[0.25em] uppercase text-gold">Why Grihamm</p>
+        <h3 class="font-display text-xl mt-2">Your money stays in your wallet.</h3>
+        <ul class="mt-4 space-y-3 text-sm text-cream/90">
+          <li class="flex gap-3"><svg class="w-5 h-5 text-gold shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12l4 4 10-10"/></svg> Milestone escrow — released only on photo-verified completion.</li>
+          <li class="flex gap-3"><svg class="w-5 h-5 text-gold shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12l4 4 10-10"/></svg> Every contractor field-audited by our senior PM before listing.</li>
+          <li class="flex gap-3"><svg class="w-5 h-5 text-gold shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12l4 4 10-10"/></svg> Free physical audit on request — refund on any unfinished part.</li>
+          <li class="flex gap-3"><svg class="w-5 h-5 text-gold shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12l4 4 10-10"/></svg> No design fees. No call centre. One PM, one WhatsApp thread.</li>
+        </ul>
+      </div>
+
+      <div class="mt-4 bg-white border border-line rounded-2xl p-5">
+        <div class="flex items-center justify-between">
+          <span class="text-xs tracking-[0.25em] uppercase text-muted">Pilot snapshot</span>
+          <span class="text-xs text-ok">● Live in Bangalore</span>
+        </div>
+        <div class="grid grid-cols-3 gap-3 mt-3">
+          <div><div class="font-display text-2xl text-teal-deep">9</div><div class="text-xs text-muted">verified partners</div></div>
+          <div><div class="font-display text-2xl text-teal-deep">6</div><div class="text-xs text-muted">trade categories</div></div>
+          <div><div class="font-display text-2xl text-teal-deep">24h</div><div class="text-xs text-muted">PM response</div></div>
+        </div>
+      </div>
+    </aside>
+  </div>
+</section>
+
+<!-- ============== SCREEN 2: CONTRACTORS ============== -->
+<section id="screen-contractors" class="screen active" role="tabpanel" aria-labelledby="tab-contractors">
+  <div class="flex items-end justify-between gap-4 flex-wrap">
+    <div>
+      <p class="text-xs tracking-[0.25em] uppercase text-terracotta">Step 2 of 3</p>
+      <h1 class="font-display text-3xl sm:text-4xl mt-1 text-teal-deep">Verified partners.</h1>
+      <p class="text-muted mt-2 max-w-prose">Field-audited by our project manager. Each badge below is a category we have personally seen them deliver — not a self-declared tag.</p>
+    </div>
+    <div class="flex items-center gap-2">
+      <select class="rounded-xl border border-line bg-white px-3 py-2 text-sm">
+        <option>All categories</option><option>Civil / Plumbing</option><option>Carpentry & Modular</option>
+        <option>Electrical</option><option>False Ceiling</option><option>Paint</option><option>Sofa / Bedback</option>
+      </select>
+      <select class="rounded-xl border border-line bg-white px-3 py-2 text-sm">
+        <option>Bangalore</option><option>Pune (waitlist)</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- Recommended Team -->
+  <div class="mt-6 bg-white border border-line rounded-2xl overflow-hidden">
+    <div class="bg-teal-deep text-cream p-5 sm:p-6 flex items-start justify-between gap-4 flex-wrap">
+      <div>
+        <div class="text-xs tracking-[0.25em] uppercase text-gold">Your recommended team</div>
+        <h2 class="font-display text-2xl mt-1">3 BHK · Whitefield · ₹3,00,000</h2>
+        <p class="text-sm text-cream/80 mt-1 max-w-prose">A coordinated team of specialists — not one generalist subcontracting on the side. Higher quality per trade, sequenced by your PM.</p>
+      </div>
+      <!-- PM coordinator -->
+      <div class="bg-cream/10 rounded-xl p-3 flex items-center gap-3 min-w-[220px]">
+        <div class="w-11 h-11 rounded-full bg-gold text-teal-deep flex items-center justify-center font-display">SK</div>
+        <div>
+          <div class="text-[10px] uppercase tracking-wider text-gold">Single point of contact</div>
+          <div class="font-medium text-cream">Sandeep K. · Lead PM</div>
+          <div class="text-xs text-cream/70">12 yrs · 84 projects delivered</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Team grid -->
+    <div id="team-grid" class="p-5 sm:p-6 grid sm:grid-cols-2 lg:grid-cols-5 gap-3 bg-paper/40"></div>
+
+    <!-- Sequencing strip -->
+    <div class="border-t border-line p-5 sm:p-6 bg-white">
+      <div class="flex items-center justify-between gap-3 flex-wrap">
+        <div>
+          <div class="text-xs tracking-[0.25em] uppercase text-muted">How they work together</div>
+          <p class="text-sm text-ink mt-1 max-w-prose">PM sequences trades so handoffs are clean — civil cures before carpentry frames; carpentry runs before electrical chases close; ceiling drops before paint. You only ever message Sandeep.</p>
+        </div>
+        <div class="flex items-center gap-2 text-xs text-muted overflow-x-auto scroll-x">
+          <span class="px-2 py-1 rounded-full bg-paper border border-line whitespace-nowrap">1 · Civil</span>
+          <span>→</span>
+          <span class="px-2 py-1 rounded-full bg-paper border border-line whitespace-nowrap">2 · Carpentry</span>
+          <span>→</span>
+          <span class="px-2 py-1 rounded-full bg-paper border border-line whitespace-nowrap">3 · Electrical</span>
+          <span>→</span>
+          <span class="px-2 py-1 rounded-full bg-paper border border-line whitespace-nowrap">4 · Ceiling</span>
+          <span>→</span>
+          <span class="px-2 py-1 rounded-full bg-paper border border-line whitespace-nowrap">5 · Paint</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- CTAs -->
+    <div class="border-t border-line p-5 sm:p-6 flex items-center justify-between gap-3 flex-wrap bg-white">
+      <div>
+        <div class="text-xs text-muted">Estimated team timeline</div>
+        <div class="font-display text-lg text-teal-deep">10–12 weeks · ₹3,00,000 in escrow</div>
+      </div>
+      <div class="flex items-center gap-2">
+        <button class="px-4 py-2.5 rounded-lg border border-line bg-white hover:bg-paper transition-colors duration-200 cursor-pointer text-sm">Swap a specialist</button>
+        <button onclick="goTo('wallet')" class="px-4 py-2.5 rounded-lg bg-terracotta hover:bg-terracotta-dark text-cream font-medium transition-colors duration-200 cursor-pointer text-sm inline-flex items-center gap-2">
+          Confirm team & fund wallet
+          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 5l7 7-7 7"/></svg>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Directory -->
+  <div class="mt-10 flex items-end justify-between gap-3 flex-wrap">
+    <div>
+      <div class="text-xs tracking-[0.25em] uppercase text-muted">Or browse all</div>
+      <h3 class="font-display text-2xl text-teal-deep mt-1">All verified partners</h3>
+    </div>
+    <span class="text-xs text-muted">9 partners · onboarding 12+ more this quarter</span>
+  </div>
+
+  <div id="contractors-grid" class="mt-4 grid sm:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+
+  <p class="mt-6 text-xs text-muted">Each partner has a primary specialty (highlighted) plus secondary trades they can support. New listings require a physical site visit by our senior PM and 2 reference projects.</p>
+</section>
+
+<!-- ============== SCREEN 3: TRACKER ============== -->
+<section id="screen-tracker" class="screen" role="tabpanel" aria-labelledby="tab-tracker">
+  <div class="grid md:grid-cols-3 gap-6">
+    <div class="md:col-span-2">
+      <p class="text-xs tracking-[0.25em] uppercase text-terracotta">Project #BLR-0042</p>
+      <h1 class="font-display text-3xl sm:text-4xl mt-1 text-teal-deep">Whitefield · 3 BHK</h1>
+      <p class="text-muted mt-1">Lead PM: Sandeep K. · Started 12 Apr · Target handover 28 Jun</p>
+
+      <!-- Milestone strip -->
+      <div class="mt-6 bg-white border border-line rounded-2xl p-5 sm:p-6">
+        <div class="flex items-center gap-0 overflow-x-auto scroll-x">
+          <!-- Step 1 -->
+          <div class="flex flex-col items-center min-w-[88px]">
+            <div class="step-dot done w-9 h-9 rounded-full border-2 flex items-center justify-center text-sm font-medium">1</div>
+            <div class="mt-2 text-[11px] uppercase tracking-wider text-ok">Done</div>
+            <div class="text-xs text-ink mt-1 text-center">Design<br/>Approved</div>
+          </div>
+          <div class="step-line done h-1 flex-1 mx-1"></div>
+          <div class="flex flex-col items-center min-w-[88px]">
+            <div class="step-dot done w-9 h-9 rounded-full border-2 flex items-center justify-center text-sm font-medium">2</div>
+            <div class="mt-2 text-[11px] uppercase tracking-wider text-ok">Done</div>
+            <div class="text-xs text-ink mt-1 text-center">Civil &<br/>Plumbing</div>
+          </div>
+          <div class="step-line done h-1 flex-1 mx-1"></div>
+          <div class="flex flex-col items-center min-w-[88px]">
+            <div class="step-dot active w-9 h-9 rounded-full border-2 flex items-center justify-center text-sm font-medium">3</div>
+            <div class="mt-2 text-[11px] uppercase tracking-wider text-terracotta">In progress</div>
+            <div class="text-xs text-ink mt-1 text-center">Carpentry</div>
+          </div>
+          <div class="step-line pending h-1 flex-1 mx-1"></div>
+          <div class="flex flex-col items-center min-w-[88px]">
+            <div class="step-dot pending w-9 h-9 rounded-full border-2 flex items-center justify-center text-sm font-medium">4</div>
+            <div class="mt-2 text-[11px] uppercase tracking-wider text-muted">Upcoming</div>
+            <div class="text-xs text-ink mt-1 text-center">Electrical</div>
+          </div>
+          <div class="step-line pending h-1 flex-1 mx-1"></div>
+          <div class="flex flex-col items-center min-w-[88px]">
+            <div class="step-dot pending w-9 h-9 rounded-full border-2 flex items-center justify-center text-sm font-medium">5</div>
+            <div class="mt-2 text-[11px] uppercase tracking-wider text-muted">Upcoming</div>
+            <div class="text-xs text-ink mt-1 text-center">Painting</div>
+          </div>
+          <div class="step-line pending h-1 flex-1 mx-1"></div>
+          <div class="flex flex-col items-center min-w-[88px]">
+            <div class="step-dot pending w-9 h-9 rounded-full border-2 flex items-center justify-center text-sm font-medium">6</div>
+            <div class="mt-2 text-[11px] uppercase tracking-wider text-muted">Final</div>
+            <div class="text-xs text-ink mt-1 text-center">Handover</div>
+          </div>
+        </div>
+
+        <!-- Active milestone detail -->
+        <div class="mt-6 border border-line rounded-xl p-4 bg-cream">
+          <div class="flex items-center justify-between flex-wrap gap-2">
+            <div>
+              <div class="text-xs tracking-[0.25em] uppercase text-terracotta">Active milestone</div>
+              <div class="font-display text-lg text-teal-deep">Carpentry — Modular kitchen carcass</div>
+            </div>
+            <span class="inline-flex items-center gap-1 text-xs bg-warn/10 text-warn px-2.5 py-1 rounded-full border border-warn/30">
+              <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 8v5"/><circle cx="12" cy="16.5" r="1"/><circle cx="12" cy="12" r="9"/></svg>
+              2-day delay flagged
+            </span>
+          </div>
+
+          <div class="mt-4 grid grid-cols-3 gap-2">
+            <div class="aspect-square rounded-lg bg-paper border border-line flex items-center justify-center text-xs text-muted">
+              <div class="text-center">
+                <svg class="w-6 h-6 mx-auto text-teal-soft" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="11" r="2"/><path d="M21 17l-5-5-9 9"/></svg>
+                Photo · 18 May
+              </div>
+            </div>
+            <div class="aspect-square rounded-lg bg-paper border border-line flex items-center justify-center text-xs text-muted">
+              <div class="text-center">
+                <svg class="w-6 h-6 mx-auto text-teal-soft" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="11" r="2"/><path d="M21 17l-5-5-9 9"/></svg>
+                Photo · 19 May
+              </div>
+            </div>
+            <button class="aspect-square rounded-lg border-2 border-dashed border-line flex items-center justify-center text-xs text-terracotta hover:bg-terracotta-soft/20 transition-colors duration-200 cursor-pointer">
+              <div class="text-center">
+                <svg class="w-6 h-6 mx-auto" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 5v14M5 12h14"/></svg>
+                Upload
+              </div>
+            </button>
+          </div>
+
+          <div class="mt-4 flex flex-wrap gap-2">
+            <button class="text-sm px-4 py-2 rounded-lg bg-teal-deep text-cream hover:bg-teal-soft transition-colors duration-200 cursor-pointer">Approve milestone</button>
+            <button class="text-sm px-4 py-2 rounded-lg border border-line bg-white hover:bg-paper transition-colors duration-200 cursor-pointer">Request rework</button>
+            <button onclick="goTo('audit')" class="text-sm px-4 py-2 rounded-lg border border-terracotta text-terracotta hover:bg-terracotta-soft/20 transition-colors duration-200 cursor-pointer">Request physical audit</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Chat panel -->
+    <aside class="bg-white border border-line rounded-2xl p-5 flex flex-col">
+      <div class="flex items-center gap-3 pb-4 border-b border-line">
+        <div class="w-10 h-10 rounded-full bg-teal-deep text-cream flex items-center justify-center font-display">RS</div>
+        <div>
+          <div class="font-medium">Rahul Sharma</div>
+          <div class="text-xs text-muted">Carpentry lead · ● online</div>
+        </div>
+      </div>
+      <div class="flex-1 mt-4 space-y-3 text-sm">
+        <div class="max-w-[85%] rounded-2xl rounded-bl-sm bg-paper px-3 py-2">Frame in place ma'am. Sending photos now.</div>
+        <div class="max-w-[85%] rounded-2xl rounded-bl-sm bg-paper px-3 py-2">Tower bolt arrival pushed to Wed — 2-day delay flagged on tracker.</div>
+        <div class="max-w-[85%] ml-auto rounded-2xl rounded-br-sm bg-teal-deep text-cream px-3 py-2">Noted. Hold release until I see the new dates.</div>
+        <div class="max-w-[85%] rounded-2xl rounded-bl-sm bg-paper px-3 py-2">Sure. Will share revised plan by EOD.</div>
+      </div>
+      <div class="mt-3 flex gap-2">
+        <input class="flex-1 rounded-xl border border-line bg-cream px-3 py-2 text-sm" placeholder="Reply to Rahul…">
+        <button class="px-3 py-2 rounded-xl bg-terracotta text-cream hover:bg-terracotta-dark transition-colors duration-200 cursor-pointer" aria-label="Send">
+          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12l14-7-7 14-2-5-5-2z"/></svg>
+        </button>
+      </div>
+    </aside>
+  </div>
+</section>
+
+<!-- ============== SCREEN 4: WALLET ============== -->
+<section id="screen-wallet" class="screen" role="tabpanel" aria-labelledby="tab-wallet">
+  <div class="grid lg:grid-cols-3 gap-6">
+    <div class="lg:col-span-2">
+      <p class="text-xs tracking-[0.25em] uppercase text-terracotta">Project #BLR-0042 · Escrow Wallet</p>
+      <h1 class="font-display text-3xl sm:text-4xl mt-1 text-teal-deep">Your money, your control.</h1>
+      <p class="text-muted mt-2 max-w-prose">Funds sit in a regulated escrow account. Each milestone unlocks only after photo verification + your approval. No upfront lump sums to anyone.</p>
+
+      <!-- Summary card -->
+      <div class="mt-6 bg-teal-deep text-cream rounded-2xl p-6">
+        <div class="flex items-baseline justify-between flex-wrap gap-2">
+          <div>
+            <div class="text-xs tracking-[0.25em] uppercase text-cream/70">Total budget</div>
+            <div class="font-display text-4xl text-gold">₹3,00,000</div>
+          </div>
+          <div class="text-xs text-cream/70">As on 19 May, 2026</div>
+        </div>
+
+        <!-- Stacked progress bar -->
+        <div class="mt-5 h-3 w-full rounded-full bg-cream/15 overflow-hidden flex">
+          <div class="bg-ok" style="width:40%" title="Released"></div>
+          <div class="bg-gold" style="width:25%" title="In escrow / pending approval"></div>
+          <div class="bg-cream/25" style="width:35%" title="Unfunded"></div>
+        </div>
+        <div class="mt-3 grid grid-cols-3 gap-3 text-sm">
+          <div><div class="text-cream/70 text-xs">Released</div><div class="font-display text-lg">₹1,20,000</div></div>
+          <div><div class="text-cream/70 text-xs">In escrow</div><div class="font-display text-lg">₹75,000</div></div>
+          <div><div class="text-cream/70 text-xs">Unfunded</div><div class="font-display text-lg">₹1,05,000</div></div>
+        </div>
+      </div>
+
+      <!-- Milestone list -->
+      <ul class="mt-6 space-y-3">
+        <li class="bg-white border border-line rounded-xl p-4 flex items-center justify-between gap-3 flex-wrap">
+          <div class="flex items-center gap-3">
+            <span class="w-8 h-8 rounded-full bg-ok/15 text-ok flex items-center justify-center">
+              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M5 12l4 4 10-10"/></svg>
+            </span>
+            <div>
+              <div class="font-medium">Design & Mobilisation</div>
+              <div class="text-xs text-muted">Released 14 Apr · 3 photos verified</div>
+            </div>
+          </div>
+          <div class="text-right">
+            <div class="font-display text-lg text-teal-deep">₹45,000</div>
+            <div class="text-xs text-ok">Released</div>
+          </div>
+        </li>
+        <li class="bg-white border border-line rounded-xl p-4 flex items-center justify-between gap-3 flex-wrap">
+          <div class="flex items-center gap-3">
+            <span class="w-8 h-8 rounded-full bg-ok/15 text-ok flex items-center justify-center">
+              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M5 12l4 4 10-10"/></svg>
+            </span>
+            <div>
+              <div class="font-medium">Civil & Plumbing</div>
+              <div class="text-xs text-muted">Released 02 May · audited by PM</div>
+            </div>
+          </div>
+          <div class="text-right">
+            <div class="font-display text-lg text-teal-deep">₹75,000</div>
+            <div class="text-xs text-ok">Released</div>
+          </div>
+        </li>
+        <li class="bg-paper border-2 border-terracotta rounded-xl p-4 flex items-center justify-between gap-3 flex-wrap">
+          <div class="flex items-center gap-3">
+            <span class="w-8 h-8 rounded-full bg-terracotta/15 text-terracotta flex items-center justify-center">
+              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+            </span>
+            <div>
+              <div class="font-medium">Carpentry — kitchen carcass</div>
+              <div class="text-xs text-muted">2 of 3 photos uploaded · awaiting your approval</div>
+            </div>
+          </div>
+          <div class="flex items-center gap-3 flex-wrap">
+            <div class="text-right">
+              <div class="font-display text-lg text-teal-deep">₹75,000</div>
+              <div class="text-xs text-terracotta">In escrow</div>
+            </div>
+            <button class="px-4 py-2 rounded-lg bg-terracotta text-cream font-medium hover:bg-terracotta-dark transition-colors duration-200 cursor-pointer disabled:opacity-50" disabled title="Upload pending photo to enable">
+              Release ₹75,000
+            </button>
+          </div>
+        </li>
+        <li class="bg-white border border-line rounded-xl p-4 flex items-center justify-between gap-3 opacity-80 flex-wrap">
+          <div class="flex items-center gap-3">
+            <span class="w-8 h-8 rounded-full bg-line text-muted flex items-center justify-center">
+              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="11" width="16" height="9" rx="2"/><path d="M8 11V7a4 4 0 018 0v4"/></svg>
+            </span>
+            <div>
+              <div class="font-medium">Electrical & False Ceiling</div>
+              <div class="text-xs text-muted">Locked — funds not yet placed in escrow</div>
+            </div>
+          </div>
+          <div class="text-right">
+            <div class="font-display text-lg text-muted">₹65,000</div>
+            <div class="text-xs text-muted">Unfunded</div>
+          </div>
+        </li>
+        <li class="bg-white border border-line rounded-xl p-4 flex items-center justify-between gap-3 opacity-80 flex-wrap">
+          <div class="flex items-center gap-3">
+            <span class="w-8 h-8 rounded-full bg-line text-muted flex items-center justify-center">
+              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="11" width="16" height="9" rx="2"/><path d="M8 11V7a4 4 0 018 0v4"/></svg>
+            </span>
+            <div>
+              <div class="font-medium">Painting & Handover</div>
+              <div class="text-xs text-muted">Locked</div>
+            </div>
+          </div>
+          <div class="text-right">
+            <div class="font-display text-lg text-muted">₹40,000</div>
+            <div class="text-xs text-muted">Unfunded</div>
+          </div>
+        </li>
+      </ul>
+    </div>
+
+    <aside class="space-y-4">
+      <div class="bg-white border border-line rounded-2xl p-5">
+        <div class="text-xs tracking-[0.25em] uppercase text-muted">Release rules</div>
+        <ul class="mt-3 space-y-2 text-sm">
+          <li class="flex gap-2"><span class="text-gold">●</span> Min. 2 stage photos uploaded</li>
+          <li class="flex gap-2"><span class="text-gold">●</span> Customer approval (one tap)</li>
+          <li class="flex gap-2"><span class="text-gold">●</span> Or PM physical audit (free)</li>
+          <li class="flex gap-2"><span class="text-gold">●</span> 48-hr cooling window before next milestone</li>
+        </ul>
+      </div>
+      <div class="bg-white border border-line rounded-2xl p-5">
+        <div class="text-xs tracking-[0.25em] uppercase text-muted">Need flexibility?</div>
+        <p class="text-sm mt-2 text-ink">Add an EMI plan on this wallet up to ₹2,00,000.</p>
+        <button class="mt-3 w-full text-sm px-4 py-2 rounded-lg border border-teal-deep text-teal-deep hover:bg-teal-deep hover:text-cream transition-colors duration-200 cursor-pointer">Explore EMI options</button>
+      </div>
+      <div class="bg-cream border border-line rounded-2xl p-5 text-xs text-muted">
+        Funds held in a regulated escrow account, not Grihamm's books. You can withdraw any unfunded balance at any time.
+      </div>
+    </aside>
+  </div>
+</section>
+
+<!-- ============== SCREEN 5: AUDIT & REFUND ============== -->
+<section id="screen-audit" class="screen" role="tabpanel" aria-labelledby="tab-audit">
+  <div class="grid lg:grid-cols-3 gap-6">
+    <div class="lg:col-span-2">
+      <p class="text-xs tracking-[0.25em] uppercase text-terracotta">Trust layer</p>
+      <h1 class="font-display text-3xl sm:text-4xl mt-1 text-teal-deep">Audit & Refund.</h1>
+      <p class="text-muted mt-2 max-w-prose">Not satisfied with a milestone? Request a free physical audit. Our senior PM visits within 48 hours, scores the work, and refunds the unfinished portion from escrow — no questions asked.</p>
+
+      <!-- Request form -->
+      <div class="mt-6 bg-white border border-line rounded-2xl p-5 sm:p-6">
+        <div class="text-xs tracking-[0.25em] uppercase text-muted">New audit request</div>
+        <h3 class="font-display text-xl text-teal-deep mt-1">Carpentry — kitchen carcass</h3>
+
+        <label class="block mt-4 text-sm font-medium">Tell us what's wrong</label>
+        <textarea rows="3" class="mt-2 w-full rounded-xl border border-line bg-cream px-4 py-3 focus:bg-white focus:border-teal-deep transition-colors duration-200" placeholder="e.g. Visible gaps between shutters; hinges not flush…"></textarea>
+
+        <label class="block mt-4 text-sm font-medium">Attach evidence (photos)</label>
+        <div class="mt-2 grid grid-cols-4 gap-2">
+          <button class="aspect-square rounded-lg border-2 border-dashed border-line flex items-center justify-center text-xs text-terracotta hover:bg-terracotta-soft/20 transition-colors duration-200 cursor-pointer">
+            <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 5v14M5 12h14"/></svg>
+          </button>
+          <div class="aspect-square rounded-lg bg-paper border border-line"></div>
+          <div class="aspect-square rounded-lg bg-paper border border-line"></div>
+          <div class="aspect-square rounded-lg bg-paper border border-line"></div>
+        </div>
+
+        <div class="mt-5 flex flex-wrap gap-2">
+          <button class="px-4 py-2.5 rounded-lg bg-terracotta text-cream font-medium hover:bg-terracotta-dark transition-colors duration-200 cursor-pointer">Request free audit</button>
+          <button class="px-4 py-2.5 rounded-lg border border-line bg-white hover:bg-paper transition-colors duration-200 cursor-pointer">Save draft</button>
+        </div>
+        <p class="text-xs text-muted mt-3">A senior PM will arrive within 48 hours. Carpentry milestone funds (₹75,000) stay locked in escrow until the audit closes.</p>
+      </div>
+
+      <!-- Refund flow -->
+      <div class="mt-6 bg-paper border border-line rounded-2xl p-5 sm:p-6">
+        <div class="text-xs tracking-[0.25em] uppercase text-muted">If audit confirms partial work</div>
+        <h3 class="font-display text-xl text-teal-deep mt-1">How the refund is calculated</h3>
+        <ol class="mt-4 space-y-3 text-sm">
+          <li class="flex gap-3"><span class="font-display text-gold">1</span><span><b>PM scores each component</b> against the BOQ — e.g. shutters 70%, carcass 100%, hardware 0%.</span></li>
+          <li class="flex gap-3"><span class="font-display text-gold">2</span><span><b>Weighted refund</b> auto-calculated from the milestone's locked escrow.</span></li>
+          <li class="flex gap-3"><span class="font-display text-gold">3</span><span><b>You choose:</b> rework with same partner, switch partner, or take refund to wallet.</span></li>
+          <li class="flex gap-3"><span class="font-display text-gold">4</span><span><b>Settled in 72 hours.</b> Partner rating updated; repeat issues = removal from network.</span></li>
+        </ol>
+      </div>
+    </div>
+
+    <!-- Audit history sidebar -->
+    <aside>
+      <div class="bg-white border border-line rounded-2xl p-5">
+        <div class="text-xs tracking-[0.25em] uppercase text-muted">Audit history</div>
+        <ul class="mt-4 space-y-4">
+          <li class="border-l-2 border-ok pl-3">
+            <div class="text-xs text-muted">02 May, 2026</div>
+            <div class="font-medium">Civil walls — moisture check</div>
+            <div class="text-xs text-ok mt-0.5">● Passed · 100% release</div>
+          </li>
+          <li class="border-l-2 border-warn pl-3">
+            <div class="text-xs text-muted">22 Apr, 2026</div>
+            <div class="font-medium">Plumbing pressure test</div>
+            <div class="text-xs text-warn mt-0.5">● Reworked · 1-day delay, no refund</div>
+          </li>
+          <li class="border-l-2 border-line pl-3">
+            <div class="text-xs text-muted">14 Apr, 2026</div>
+            <div class="font-medium">Mobilisation site visit</div>
+            <div class="text-xs text-muted mt-0.5">● Routine</div>
+          </li>
+        </ul>
+      </div>
+
+      <div class="bg-teal-deep text-cream rounded-2xl p-5 mt-4">
+        <div class="text-xs tracking-[0.25em] uppercase text-gold">Pilot guarantee</div>
+        <p class="font-display text-lg mt-2">First 100 customers in Bangalore get unlimited free audits + 2× refund coverage on any unfinished portion.</p>
+      </div>
+    </aside>
+  </div>
+</section>
+
+<!-- ============== SCREEN 6: PARTNER VIEW ============== -->
+<section id="screen-partner" class="screen" role="tabpanel" aria-labelledby="tab-partner">
+
+  <!-- Logged-in partner header -->
+  <div class="bg-teal-deep text-cream rounded-2xl p-5 sm:p-6 flex items-center justify-between gap-4 flex-wrap">
+    <div class="flex items-center gap-4">
+      <div class="w-14 h-14 rounded-full bg-gold text-teal-deep flex items-center justify-center font-display text-xl">RS</div>
+      <div>
+        <div class="text-xs tracking-[0.25em] uppercase text-gold">Partner dashboard</div>
+        <h1 class="font-display text-2xl">Rahul Sharma</h1>
+        <div class="text-sm text-cream/80">Carpentry & Modular · Bangalore · onboarded 2015</div>
+      </div>
+    </div>
+    <div class="grid grid-cols-3 gap-4 text-center">
+      <div><div class="font-display text-xl text-gold">4.9</div><div class="text-[10px] uppercase tracking-wider text-cream/70">Client rating</div></div>
+      <div><div class="font-display text-xl text-gold">92%</div><div class="text-[10px] uppercase tracking-wider text-cream/70">Acceptance</div></div>
+      <div><div class="font-display text-xl text-gold">₹4.2L</div><div class="text-[10px] uppercase tracking-wider text-cream/70">This quarter</div></div>
+    </div>
+  </div>
+
+  <p class="mt-5 text-sm text-muted max-w-prose">Three new team invitations this week. <b class="text-ink">Decline freely</b> — your acceptance rate is not a punishment metric, it's information for your PM. The whole point is that you only take work you'd be proud of.</p>
+
+  <div class="mt-6 grid lg:grid-cols-3 gap-6">
+
+    <!-- LEFT: Invitation list -->
+    <div class="lg:col-span-1 space-y-3">
+      <div class="text-xs tracking-[0.25em] uppercase text-muted">Incoming team invitations</div>
+
+      <!-- Invitation 1 - selected -->
+      <button class="w-full text-left bg-white border-2 border-terracotta rounded-2xl p-4 cursor-pointer">
+        <div class="flex items-center justify-between">
+          <span class="text-xs text-terracotta font-medium">BLR-0058 · Whitefield</span>
+          <span class="text-[10px] uppercase tracking-wider text-ok">● Wallet funded</span>
+        </div>
+        <div class="font-display text-base text-teal-deep mt-1">3 BHK · Modular kitchen + 2 wardrobes</div>
+        <div class="mt-3 flex items-center justify-between text-xs">
+          <div>
+            <div class="text-muted">Your role</div>
+            <div class="font-medium text-ink">Carpentry · ₹95,000</div>
+          </div>
+          <div class="text-right">
+            <div class="text-muted">Client trust</div>
+            <div class="font-medium text-ok">★ 4.7 · 2 projects</div>
+          </div>
+        </div>
+      </button>
+
+      <!-- Invitation 2 -->
+      <button class="w-full text-left bg-white border border-line rounded-2xl p-4 hover:border-terracotta transition-colors duration-200 cursor-pointer">
+        <div class="flex items-center justify-between">
+          <span class="text-xs text-muted">BLR-0061 · HSR Layout</span>
+          <span class="text-[10px] uppercase tracking-wider text-warn">● Partial escrow</span>
+        </div>
+        <div class="font-display text-base text-teal-deep mt-1">2 BHK · TV unit + study table</div>
+        <div class="mt-3 flex items-center justify-between text-xs">
+          <div>
+            <div class="text-muted">Your role</div>
+            <div class="font-medium text-ink">Carpentry · ₹38,000</div>
+          </div>
+          <div class="text-right">
+            <div class="text-muted">Client trust</div>
+            <div class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-gold/15 text-warn text-[10px]">New client</div>
+          </div>
+        </div>
+      </button>
+
+      <!-- Invitation 3 -->
+      <button class="w-full text-left bg-white border border-line rounded-2xl p-4 hover:border-terracotta transition-colors duration-200 cursor-pointer">
+        <div class="flex items-center justify-between">
+          <span class="text-xs text-muted">BLR-0064 · Indiranagar</span>
+          <span class="text-[10px] uppercase tracking-wider text-ok">● Wallet funded</span>
+        </div>
+        <div class="font-display text-base text-teal-deep mt-1">4 BHK villa · Full carpentry scope</div>
+        <div class="mt-3 flex items-center justify-between text-xs">
+          <div>
+            <div class="text-muted">Your role</div>
+            <div class="font-medium text-ink">Carpentry · ₹1,80,000</div>
+          </div>
+          <div class="text-right">
+            <div class="text-muted">Client trust</div>
+            <div class="font-medium text-err">★ 3.2 · 1 project</div>
+          </div>
+        </div>
+      </button>
+    </div>
+
+    <!-- RIGHT: Detailed invitation + client profile -->
+    <div class="lg:col-span-2 space-y-5">
+
+      <!-- Client profile card -->
+      <div class="bg-white border border-line rounded-2xl overflow-hidden">
+        <div class="p-5 sm:p-6 border-b border-line">
+          <div class="flex items-start justify-between gap-3 flex-wrap">
+            <div>
+              <div class="text-xs tracking-[0.25em] uppercase text-terracotta">Client profile</div>
+              <h2 class="font-display text-2xl text-teal-deep mt-1">Mrs. P. (verified · 2 prior projects)</h2>
+              <p class="text-sm text-muted mt-1">Whitefield · IT professional · prefers WhatsApp · vastu-conscious kitchen layout</p>
+            </div>
+            <div class="text-right">
+              <div class="font-display text-3xl text-teal-deep">4.7</div>
+              <div class="text-xs text-muted">aggregate trust score</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Structured rating breakdown -->
+        <div class="p-5 sm:p-6 grid sm:grid-cols-2 gap-4 bg-paper/40">
+          <div class="bg-white border border-line rounded-xl p-4">
+            <div class="flex items-center justify-between">
+              <div class="text-xs uppercase tracking-wider text-muted">Communication</div>
+              <div class="font-medium text-teal-deep">4.8</div>
+            </div>
+            <div class="mt-2 h-1.5 bg-line rounded-full overflow-hidden"><div class="h-full bg-ok" style="width:96%"></div></div>
+            <div class="text-xs text-muted mt-2">Replies within 2h on average · clear scope decisions</div>
+          </div>
+          <div class="bg-white border border-line rounded-xl p-4">
+            <div class="flex items-center justify-between">
+              <div class="text-xs uppercase tracking-wider text-muted">Site readiness</div>
+              <div class="font-medium text-teal-deep">4.5</div>
+            </div>
+            <div class="mt-2 h-1.5 bg-line rounded-full overflow-hidden"><div class="h-full bg-ok" style="width:90%"></div></div>
+            <div class="text-xs text-muted mt-2">One handover delay (society NOC) on prior project</div>
+          </div>
+          <div class="bg-white border border-line rounded-xl p-4">
+            <div class="flex items-center justify-between">
+              <div class="text-xs uppercase tracking-wider text-muted">Payment timeliness</div>
+              <div class="font-medium text-teal-deep">5.0</div>
+            </div>
+            <div class="mt-2 h-1.5 bg-line rounded-full overflow-hidden"><div class="h-full bg-ok" style="width:100%"></div></div>
+            <div class="text-xs text-muted mt-2">Approved every milestone within 24h of photo upload</div>
+          </div>
+          <div class="bg-white border border-line rounded-xl p-4">
+            <div class="flex items-center justify-between">
+              <div class="text-xs uppercase tracking-wider text-muted">Decision clarity</div>
+              <div class="font-medium text-teal-deep">4.6</div>
+            </div>
+            <div class="mt-2 h-1.5 bg-line rounded-full overflow-hidden"><div class="h-full bg-ok" style="width:92%"></div></div>
+            <div class="text-xs text-muted mt-2">One mid-project layout change · paid the differential</div>
+          </div>
+        </div>
+
+        <!-- Private notes from past contractors -->
+        <div class="p-5 sm:p-6 border-t border-line">
+          <div class="flex items-center gap-2 text-xs uppercase tracking-wider text-muted">
+            <svg class="w-4 h-4 text-terracotta" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="11" width="16" height="9" rx="2"/><path d="M8 11V7a4 4 0 018 0v4"/></svg>
+            Private notes — partners only
+          </div>
+          <ul class="mt-3 space-y-3 text-sm">
+            <li class="border-l-2 border-ok pl-3">
+              <div class="text-ink">"Knows what she wants. Bring 2-3 hardware options to avoid back-and-forth."</div>
+              <div class="text-xs text-muted mt-0.5">Ajith S. · Electrical · Mar 2026</div>
+            </li>
+            <li class="border-l-2 border-warn pl-3">
+              <div class="text-ink">"Husband may overrule late in the day — try to lock decisions on weekends when both are home."</div>
+              <div class="text-xs text-muted mt-0.5">Aswini · Civil · Jan 2026</div>
+            </li>
+          </ul>
+          <p class="text-[11px] text-muted mt-3 italic">These notes are visible to verified Grihamm partners only. Never shown to the client. Used only to help future partners deliver well.</p>
+        </div>
+      </div>
+
+      <!-- Project fit + actions -->
+      <div class="bg-white border border-line rounded-2xl p-5 sm:p-6">
+        <div class="flex items-center justify-between flex-wrap gap-3">
+          <div>
+            <div class="text-xs tracking-[0.25em] uppercase text-terracotta">This invitation</div>
+            <h3 class="font-display text-xl text-teal-deep mt-1">Carpentry · ₹95,000 · Wk 3–7</h3>
+            <p class="text-sm text-muted mt-1">Modular kitchen carcass + 2 wardrobes (master + guest). Hardware: Hettich. Materials sourced by Grihamm BOM.</p>
+          </div>
+          <div class="text-right">
+            <div class="text-xs text-muted">Schedule fit</div>
+            <div class="inline-flex items-center gap-1 text-ok text-sm font-medium"><span class="w-2 h-2 rounded-full bg-ok"></span> Free in your calendar</div>
+          </div>
+        </div>
+
+        <div class="mt-5 grid grid-cols-3 gap-3 text-sm">
+          <div class="rounded-lg bg-paper p-3">
+            <div class="text-[10px] uppercase tracking-wider text-muted">Escrow</div>
+            <div class="font-medium text-ok mt-1">Fully funded</div>
+          </div>
+          <div class="rounded-lg bg-paper p-3">
+            <div class="text-[10px] uppercase tracking-wider text-muted">Lead PM</div>
+            <div class="font-medium mt-1">Sandeep K.</div>
+          </div>
+          <div class="rounded-lg bg-paper p-3">
+            <div class="text-[10px] uppercase tracking-wider text-muted">Site distance</div>
+            <div class="font-medium mt-1">8 km from base</div>
+          </div>
+        </div>
+
+        <div class="mt-5 flex flex-wrap gap-2">
+          <button class="px-5 py-2.5 rounded-lg bg-terracotta text-cream font-medium hover:bg-terracotta-dark transition-colors duration-200 cursor-pointer">Accept invitation</button>
+          <button class="px-5 py-2.5 rounded-lg border border-line bg-white hover:bg-paper transition-colors duration-200 cursor-pointer">Counter timeline</button>
+          <button class="px-5 py-2.5 rounded-lg border border-err/40 text-err bg-white hover:bg-err/5 transition-colors duration-200 cursor-pointer">Decline (with reason)</button>
+        </div>
+      </div>
+
+      <!-- Rate-this-client form (post handover) -->
+      <div class="bg-paper border border-line rounded-2xl p-5 sm:p-6">
+        <div class="flex items-center justify-between gap-3 flex-wrap">
+          <div>
+            <div class="text-xs tracking-[0.25em] uppercase text-terracotta">Project handover · BLR-0042</div>
+            <h3 class="font-display text-xl text-teal-deep mt-1">Rate this client</h3>
+            <p class="text-sm text-muted mt-1">Submitted blind — your rating is revealed only after the client also submits theirs. Helps every partner who comes after you.</p>
+          </div>
+          <span class="text-[10px] uppercase tracking-wider text-warn bg-warn/10 px-2 py-1 rounded">Awaiting your input</span>
+        </div>
+
+        <div id="rate-grid" class="mt-5 grid sm:grid-cols-2 gap-4"></div>
+
+        <div class="mt-5">
+          <label class="block text-sm font-medium mb-2">Private note for the next contractor (optional)</label>
+          <textarea rows="3" class="w-full rounded-xl border border-line bg-white px-4 py-3 focus:border-teal-deep transition-colors duration-200 text-sm" placeholder="e.g. Loves a tidy site. Bring sample swatches in person — photos don't convince her."></textarea>
+          <p class="text-[11px] text-muted mt-1">Visible to verified partners only. Never shown to the client.</p>
+        </div>
+
+        <div class="mt-5 flex flex-wrap gap-2 items-center">
+          <button class="px-5 py-2.5 rounded-lg bg-teal-deep text-cream font-medium hover:bg-teal-soft transition-colors duration-200 cursor-pointer">Submit rating</button>
+          <span class="text-xs text-muted">Revealed when client submits theirs · or auto-released 14 days after handover.</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+</main>
+
+<footer class="border-t border-line bg-paper">
+  <div class="max-w-5xl mx-auto px-4 py-6 flex items-center justify-between flex-wrap gap-3 text-xs text-muted">
+    <div>Grihamm — Bangalore pilot · MVP prototype · v0.1</div>
+    <div class="flex gap-3">
+      <a href="#" class="hover:text-teal-deep transition-colors">Privacy</a>
+      <a href="#" class="hover:text-teal-deep transition-colors">Escrow partner</a>
+      <a href="#" class="hover:text-teal-deep transition-colors">Become a partner</a>
+    </div>
+  </div>
+</footer>
+
+<script>
+  // ---- contractor data (from RESOURCES.pdf) ----
+  // Each contractor now has a PRIMARY trade (where they lead) and ALSO trades (secondary support).
+  const contractors = [
+    { name: 'Aswini',         city: 'Bangalore', phone: '8867683286', initials: 'AS', rating: 4.8, jobs: 41, since: 2017, primary: 'Civil & Plumbing',   also: ['Tiling'] },
+    { name: 'Rahul Sharma',   city: 'Bangalore', phone: '9663809667', initials: 'RS', rating: 4.9, jobs: 52, since: 2015, primary: 'Carpentry & Modular', also: ['Wardrobes', 'TV Units'] },
+    { name: 'Ajith Sharma',   city: 'Bangalore', phone: '8147817457', initials: 'AJ', rating: 4.7, jobs: 38, since: 2019, primary: 'Electrical',          also: ['Smart Switches'] },
+    { name: 'Arjun Sharma',   city: 'Bangalore', phone: '8951403312', initials: 'AR', rating: 4.6, jobs: 29, since: 2020, primary: 'False Ceiling & Paint', also: ['POP', 'Texture'] },
+    { name: 'Takshit',        city: 'Bangalore', phone: '7790867441', initials: 'TK', rating: 4.7, jobs: 33, since: 2018, primary: 'Sofa & Soft Furnishing', also: ['Curtains', 'Bedback'] },
+    { name: 'Sukhdev Mahato', city: 'Pune',      phone: '9595374033', initials: 'SM', rating: 4.8, jobs: 45, since: 2016, primary: 'Civil & Plumbing',   also: ['Waterproofing'] },
+    { name: 'Anil Bhame',     city: 'Pune',      phone: '9503865471', initials: 'AB', rating: 4.7, jobs: 36, since: 2017, primary: 'Carpentry & Modular', also: ['Wardrobes'] },
+    { name: 'Takshit',        city: 'Pune',      phone: '7790867441', initials: 'TK', rating: 4.6, jobs: 22, since: 2021, primary: 'Electrical',          also: ['Lighting Design'] },
+    { name: 'Badri',          city: 'Pune',      phone: '8180876064', initials: 'BD', rating: 4.5, jobs: 27, since: 2019, primary: 'Sofa & Soft Furnishing', also: ['Upholstery'] },
+  ];
+
+  // Recommended team for the 3BHK Whitefield brief — one specialist per trade in Bangalore.
+  const recommendedTeam = [
+    { role: '1. Civil & Plumbing',  name: 'Aswini',       initials: 'AS', rating: 4.8, jobs: 41, eta: 'Wk 1–3',  budget: 75000 },
+    { role: '2. Carpentry',         name: 'Rahul Sharma', initials: 'RS', rating: 4.9, jobs: 52, eta: 'Wk 3–7',  budget: 95000 },
+    { role: '3. Electrical',        name: 'Ajith Sharma', initials: 'AJ', rating: 4.7, jobs: 38, eta: 'Wk 5–8',  budget: 45000 },
+    { role: '4. Ceiling & Paint',   name: 'Arjun Sharma', initials: 'AR', rating: 4.6, jobs: 29, eta: 'Wk 7–10', budget: 50000 },
+    { role: '5. Soft Furnishing',   name: 'Takshit',      initials: 'TK', rating: 4.7, jobs: 33, eta: 'Wk 10–12', budget: 35000 },
+  ];
+
+  function star() {
+    return '<svg class="w-3.5 h-3.5 inline text-gold" viewBox="0 0 20 20" fill="currentColor"><path d="M10 2l2.39 4.84L18 7.7l-4 3.9L14.78 17 10 14.42 5.22 17 6 11.6l-4-3.9 5.61-.86L10 2z"/></svg>';
+  }
+  function shieldVerified() {
+    return `<span class="inline-flex items-center gap-1 text-[10px] uppercase tracking-wider text-ok bg-ok/10 px-1.5 py-0.5 rounded">
+      <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M12 3l8 4v5c0 5-3.6 8.5-8 9-4.4-.5-8-4-8-9V7l8-4z"/><path d="M9 12l2 2 4-4"/></svg>
+      Verified
+    </span>`;
+  }
+  function paused(c) {
+    return c.city === 'Pune' ? `<span class="inline-flex items-center text-[10px] uppercase tracking-wider text-muted bg-line px-1.5 py-0.5 rounded">Pune waitlist</span>` : '';
+  }
+
+  function renderContractors() {
+    const grid = document.getElementById('contractors-grid');
+    grid.innerHTML = contractors.map((c) => `
+      <article class="bg-white border border-line rounded-2xl p-5 flex flex-col">
+        <div class="flex items-start gap-3">
+          <div class="w-12 h-12 rounded-full bg-teal-deep text-cream flex items-center justify-center font-display text-lg shrink-0">${c.initials}</div>
+          <div class="min-w-0 flex-1">
+            <div class="flex items-center gap-2 flex-wrap">
+              <h3 class="font-medium truncate">${c.name}</h3>
+              ${shieldVerified()}
+              ${paused(c)}
+            </div>
+            <div class="text-xs text-muted mt-0.5">${c.city} · onboarded ${c.since}</div>
+            <div class="text-xs mt-1">${star()} <b>${c.rating}</b> <span class="text-muted">· ${c.jobs} projects via Grihamm</span></div>
+          </div>
+        </div>
+
+        <div class="mt-4">
+          <div class="text-[10px] uppercase tracking-wider text-muted">Primary specialty</div>
+          <div class="mt-1 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-terracotta-soft/30 border border-terracotta text-terracotta-dark text-sm font-medium">
+            <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3 7h7l-5.5 4.5L18 21l-6-4-6 4 1.5-7.5L2 9h7z"/></svg>
+            ${c.primary}
+          </div>
+        </div>
+
+        ${c.also && c.also.length ? `
+        <div class="mt-3">
+          <div class="text-[10px] uppercase tracking-wider text-muted">Also supports</div>
+          <div class="mt-1 flex flex-wrap gap-1.5">
+            ${c.also.map(t => `<span class="text-[11px] px-2 py-0.5 rounded-full border border-line bg-paper text-muted">${t}</span>`).join('')}
+          </div>
+        </div>` : ''}
+
+        <div class="mt-auto pt-4 flex items-center justify-between gap-2">
+          <button class="text-xs px-3 py-1.5 rounded-lg border border-line bg-white hover:bg-paper transition-colors duration-200 cursor-pointer">${c.jobs} past projects</button>
+          <button onclick="goTo('tracker')" class="text-xs px-3 py-1.5 rounded-lg bg-terracotta hover:bg-terracotta-dark text-cream font-medium transition-colors duration-200 cursor-pointer ${c.city==='Pune'?'opacity-50 pointer-events-none':''}">${c.city === 'Pune' ? 'Notify me' : 'Add to team'}</button>
+        </div>
+      </article>
+    `).join('');
+  }
+  renderContractors();
+
+  // ---- recommended team strip ----
+  function renderTeam() {
+    const wrap = document.getElementById('team-grid');
+    wrap.innerHTML = recommendedTeam.map(m => `
+      <div class="bg-white border border-line rounded-xl p-4 flex flex-col">
+        <div class="text-[10px] uppercase tracking-wider text-terracotta">${m.role}</div>
+        <div class="flex items-center gap-3 mt-2">
+          <div class="w-10 h-10 rounded-full bg-teal-deep text-cream flex items-center justify-center font-display shrink-0">${m.initials}</div>
+          <div class="min-w-0">
+            <div class="font-medium text-sm truncate">${m.name}</div>
+            <div class="text-[11px] text-muted">${star()} ${m.rating} · ${m.jobs} jobs</div>
+          </div>
+        </div>
+        <div class="mt-3 text-xs text-muted">${m.eta} · ₹${m.budget.toLocaleString('en-IN')}</div>
+        <button class="mt-3 text-[11px] text-terracotta hover:underline self-start cursor-pointer">Swap specialist</button>
+      </div>
+    `).join('');
+  }
+  renderTeam();
+
+  // ---- tab switching ----
+  function goTo(name) {
+    document.querySelectorAll('.tab-btn').forEach(b => b.setAttribute('aria-selected', b.dataset.tab === name ? 'true' : 'false'));
+    document.querySelectorAll('.screen').forEach(s => s.classList.toggle('active', s.id === 'screen-' + name));
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+  document.querySelectorAll('.tab-btn').forEach(b => b.addEventListener('click', () => goTo(b.dataset.tab)));
+
+  // ---- budget output sync ----
+  const budget = document.getElementById('budget');
+  const budgetOut = document.getElementById('budgetOut');
+  if (budget) {
+    const fmt = n => '₹' + Number(n).toLocaleString('en-IN');
+    budget.addEventListener('input', () => budgetOut.textContent = fmt(budget.value));
+  }
+
+  // ---- file uploads (per-bucket) ----
+  const buckets = { plan: [], current: [], inspo: [], other: [] };
+  const bucketLabel = { plan: 'Floor plan', current: 'Current photo', inspo: 'Inspiration', other: 'File' };
+  const list = document.getElementById('upload-list');
+
+  function fileIcon(file) {
+    if (file.type.startsWith('image/')) {
+      const url = URL.createObjectURL(file);
+      return `<img src="${url}" alt="" class="w-10 h-10 rounded-md object-cover">`;
+    }
+    return `<div class="w-10 h-10 rounded-md bg-paper text-teal-deep flex items-center justify-center">
+      <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M14 3H6a2 2 0 00-2 2v14a2 2 0 002 2h12a2 2 0 002-2V9z"/><path d="M14 3v6h6"/></svg>
+    </div>`;
+  }
+  function fmtBytes(n) {
+    if (n < 1024) return n + ' B';
+    if (n < 1024*1024) return (n/1024).toFixed(0) + ' KB';
+    return (n/1024/1024).toFixed(1) + ' MB';
+  }
+  function renderFiles() {
+    const all = [];
+    Object.keys(buckets).forEach(k => buckets[k].forEach((f, i) => all.push({ bucket: k, idx: i, file: f })));
+    if (all.length === 0) {
+      list.classList.add('hidden');
+      list.innerHTML = '';
+    } else {
+      list.classList.remove('hidden');
+      list.innerHTML = all.map(({ bucket, idx, file }) => `
+        <li class="flex items-center gap-3 p-2 rounded-lg bg-white border border-line">
+          ${fileIcon(file)}
+          <div class="min-w-0 flex-1">
+            <div class="text-sm truncate">${file.name}</div>
+            <div class="text-[11px] text-muted">${bucketLabel[bucket]} · ${fmtBytes(file.size)}</div>
+          </div>
+          <button class="p-1.5 rounded-md text-muted hover:text-err hover:bg-err/10 transition-colors duration-200 cursor-pointer" data-rm-bucket="${bucket}" data-rm-idx="${idx}" aria-label="Remove file">
+            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M6 18L18 6"/></svg>
+          </button>
+        </li>
+      `).join('');
+    }
+    // per-bucket counts
+    document.querySelectorAll('.file-count').forEach(el => {
+      const b = el.dataset.for;
+      const n = buckets[b].length;
+      el.textContent = n ? `${n} file${n>1?'s':''} attached` : '';
+    });
+  }
+
+  document.querySelectorAll('.upload-input').forEach(input => {
+    input.addEventListener('change', e => {
+      const b = input.dataset.bucket;
+      Array.from(input.files || []).forEach(f => buckets[b].push(f));
+      input.value = '';
+      renderFiles();
+    });
+  });
+
+  list.addEventListener('click', e => {
+    const btn = e.target.closest('[data-rm-bucket]');
+    if (!btn) return;
+    const b = btn.dataset.rmBucket;
+    const i = Number(btn.dataset.rmIdx);
+    buckets[b].splice(i, 1);
+    renderFiles();
+  });
+
+  // ---- partner-side: rate-the-client form ----
+  const rateCriteria = [
+    { key: 'comm', label: 'Communication',      hint: 'Replies, clarity, available on call' },
+    { key: 'site', label: 'Site readiness',     hint: 'Access, NOC, prior trade clean handover' },
+    { key: 'pay',  label: 'Payment timeliness', hint: 'Approves milestones quickly in escrow' },
+    { key: 'dec',  label: 'Decision clarity',   hint: 'Locks scope, pays for changes fairly' },
+  ];
+  const rateGrid = document.getElementById('rate-grid');
+  if (rateGrid) {
+    rateGrid.innerHTML = rateCriteria.map(c => `
+      <div class="bg-white border border-line rounded-xl p-4">
+        <div class="flex items-center justify-between gap-2">
+          <div>
+            <div class="text-sm font-medium">${c.label}</div>
+            <div class="text-[11px] text-muted">${c.hint}</div>
+          </div>
+          <div class="flex gap-1" role="radiogroup" aria-label="${c.label} rating" data-rate="${c.key}">
+            ${[1,2,3,4,5].map(n => `
+              <button type="button" data-val="${n}" aria-label="${n} star" class="star-btn p-1 cursor-pointer text-line hover:text-gold transition-colors duration-150">
+                <svg class="w-5 h-5" viewBox="0 0 20 20" fill="currentColor"><path d="M10 2l2.39 4.84L18 7.7l-4 3.9L14.78 17 10 14.42 5.22 17 6 11.6l-4-3.9 5.61-.86L10 2z"/></svg>
+              </button>
+            `).join('')}
+          </div>
+        </div>
+      </div>
+    `).join('');
+
+    rateGrid.addEventListener('click', e => {
+      const btn = e.target.closest('.star-btn');
+      if (!btn) return;
+      const group = btn.closest('[data-rate]');
+      const val = Number(btn.dataset.val);
+      group.querySelectorAll('.star-btn').forEach((b, i) => {
+        b.classList.toggle('text-gold', i < val);
+        b.classList.toggle('text-line', i >= val);
+      });
+      group.dataset.value = val;
+    });
+  }
+</script>
+</body>
+</html>
