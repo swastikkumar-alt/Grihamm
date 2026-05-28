@@ -37,17 +37,16 @@ export const defaultBooking = {
   desiredStartDate: '',
   targetHandoverDate: '',
   visitPreference: 'Site visit this week',
-  projectType: projectTypes[0].label,
-  city: supportedCities[0],
-  propertySubtype: projectTypes[0].spaces[1],
+  projectType: '',
+  city: '',
+  propertySubtype: '',
   customSpace: '',
   areaType: areaTypes[0],
-  areaSqft: 1000,
+  areaSqft: 0,
   budgetMin: 100000,
   budgetMax: 800000,
-  homeType: 'Home - 2 BHK',
+  homeType: '',
   budget: 300000,
-  scopeText: '',
 };
 
 export const auditPrice = 999;

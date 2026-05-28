@@ -45,7 +45,7 @@ interface AuthContextType {
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
-const configuredAdminEmails = String(import.meta.env.VITE_SUPER_ADMIN_EMAILS || '')
+const configuredAdminEmails = String(import.meta.env.VITE_SUPER_ADMIN_EMAILS || 'swastik.kumar@aegis.edu.in')
   .split(',')
   .map(email => email.trim().toLowerCase())
   .filter(Boolean);

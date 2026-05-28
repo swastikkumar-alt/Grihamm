@@ -1,5 +1,6 @@
 import { useState, type Dispatch, type ReactNode, type SetStateAction } from 'react';
-import { AlertTriangle, Camera, CheckCircle2, ClipboardCheck, FileImage, MessageSquareText, Settings, User, Wallet } from 'lucide-react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { AlertTriangle, Camera, CheckCircle2, ClipboardCheck, FileImage, MessageSquareText, User, Wallet } from 'lucide-react';
 import { api, formatCurrency, type AuditRequest, type Professional, type Project, type ProjectFile, type Remark, type SiteUpdate, type WalletTransaction } from '../lib/api';
 import { useAuth, type AuthUser, type UserProfile } from '../contexts/AuthContext';
 import { useGrihammData } from '../lib/useGrihammData';
@@ -17,13 +18,19 @@ type FundingRequest = {
 const customerTabs: { id: CustomerTab; label: string; icon: ReactNode }[] = [
   { id: 'projects', label: 'Projects & Tracker', icon: <ClipboardCheck size={16} /> },
   { id: 'wallet', label: 'Escrow Wallet', icon: <Wallet size={16} /> },
-  { id: 'settings', label: 'Settings', icon: <Settings size={16} /> },
 ];
 
+const getTabFromSearch = (search: string): CustomerTab => {
+  const requestedTab = new URLSearchParams(search).get('tab');
+  return requestedTab === 'wallet' || requestedTab === 'settings' ? requestedTab : 'projects';
+};
+
 const ProjectOS = () => {
+  const location = useLocation();
+  const navigate = useNavigate();
   const { currentUser, userProfile, updateProfile } = useAuth();
   const { data, loading, error, replaceData } = useGrihammData();
-  const [activeTab, setActiveTab] = useState<CustomerTab>('projects');
+  const activeTab = getTabFromSearch(location.search);
   const [selectedProjectId, setSelectedProjectId] = useState('');
   const [remarkTextByUpdate, setRemarkTextByUpdate] = useState<Record<string, string>>({});
   const [escalationText, setEscalationText] = useState('');
@@ -40,9 +47,11 @@ const ProjectOS = () => {
   const projectFiles = data?.projectFiles.filter(file => file.projectId === selectedProject?.id) || [];
   const walletTransactions = data?.walletTransactions.filter(transaction => transaction.projectId === selectedProject?.id) || [];
   const professionalsById = new Map((data?.professionals || []).map(item => [item.id, item]));
+  const bookedContractor = selectedProject?.contractorId ? professionalsById.get(selectedProject.contractorId) || null : null;
+  const bookedDesigner = selectedProject?.designerId ? professionalsById.get(selectedProject.designerId) || null : null;
   const bookedProfessionals = [
-    selectedProject?.designerId ? professionalsById.get(selectedProject.designerId) : null,
-    selectedProject?.contractorId ? professionalsById.get(selectedProject.contractorId) : null,
+    bookedDesigner,
+    bookedContractor,
   ].filter(Boolean) as Professional[];
 
   const submitRemark = async (updateId: string) => {
@@ -121,14 +130,23 @@ const ProjectOS = () => {
         <div className="dashboard-header">
           <div>
             <div className="dashboard-kicker">Customer dashboard</div>
-            <h1>Your booked projects and site tracker.</h1>
-            <p>Review booked projects, partner proof, customer remarks, escrow status, and profile settings from one private workspace.</p>
+            <h1>Your booked project and proof ledger.</h1>
+            <p>Track the contractor you booked, review photo proof, leave remarks, and keep wallet releases tied to verified milestones.</p>
           </div>
-          {projects.length > 0 && (
-            <select value={selectedProject?.id || ''} onChange={event => setSelectedProjectId(event.target.value)} className="dashboard-select">
-              {projects.map(project => <option key={project.id} value={project.id}>{project.id} - {project.homeType}</option>)}
-            </select>
-          )}
+          <div className="dashboard-header-actions">
+            {projects.length > 0 && (
+              <select value={selectedProject?.id || ''} onChange={event => setSelectedProjectId(event.target.value)} className="dashboard-select">
+                {projects.map(project => <option key={project.id} value={project.id}>{project.id} - {project.homeType}</option>)}
+              </select>
+            )}
+            {selectedProject && (
+              <div className="dashboard-booked-summary">
+                <span>Booked contractor</span>
+                <strong>{bookedContractor?.name || 'Assignment pending'}</strong>
+                <small>{bookedContractor ? `${bookedContractor.type} - ${bookedContractor.city}` : 'Operations will assign after brief verification.'}</small>
+              </div>
+            )}
+          </div>
         </div>
 
         {error && <div className="dashboard-alert warning">Check your Supabase environment variables and migrations. {error}</div>}
@@ -138,7 +156,7 @@ const ProjectOS = () => {
           <>
             <div className="profile-tabs" role="tablist" aria-label="Customer project sections">
               {customerTabs.map(tab => (
-                <button key={tab.id} type="button" className={activeTab === tab.id ? 'active' : ''} onClick={() => setActiveTab(tab.id)} aria-selected={activeTab === tab.id}>
+                <button key={tab.id} type="button" className={activeTab === tab.id ? 'active' : ''} onClick={() => navigate(tab.id === 'projects' ? '/track-project' : `/track-project?tab=${tab.id}`)} aria-selected={activeTab === tab.id}>
                   {tab.icon}
                   {tab.label}
                 </button>
@@ -154,6 +172,7 @@ const ProjectOS = () => {
                 remarks={projectRemarks}
                 files={projectFiles}
                 bookedProfessionals={bookedProfessionals}
+                bookedContractor={bookedContractor}
                 professionalsById={professionalsById}
                 remarkTextByUpdate={remarkTextByUpdate}
                 setRemarkTextByUpdate={setRemarkTextByUpdate}
@@ -217,6 +236,7 @@ const TrackerView = ({
   remarks,
   files,
   bookedProfessionals,
+  bookedContractor,
   professionalsById,
   remarkTextByUpdate,
   setRemarkTextByUpdate,
@@ -230,6 +250,7 @@ const TrackerView = ({
   remarks: Remark[];
   files: ProjectFile[];
   bookedProfessionals: Professional[];
+  bookedContractor: Professional | null;
   professionalsById: Map<string, Professional>;
   remarkTextByUpdate: Record<string, string>;
   setRemarkTextByUpdate: Dispatch<SetStateAction<Record<string, string>>>;
@@ -293,7 +314,12 @@ const TrackerView = ({
 
     <aside className="profile-side">
       <section className="dashboard-card booked-partner-card">
-        <h3><User size={18} /> Booked professionals</h3>
+        <h3><User size={18} /> Booked contractor</h3>
+        <div className="booked-contractor-focus">
+          <span>Primary execution partner</span>
+          <strong>{bookedContractor?.name || 'Contractor pending assignment'}</strong>
+          <small>{bookedContractor ? `${bookedContractor.phone || 'Phone pending'} - ${bookedContractor.experienceYears}+ yrs - ${bookedContractor.clientsServed} clients` : 'Your selected contractor will appear here once the booking request is accepted or assigned.'}</small>
+        </div>
         <div className="booked-partner-list">
           {bookedProfessionals.length === 0 && <p>No professional has been assigned yet. Operations will connect the right partner after scope verification.</p>}
           {bookedProfessionals.map(partner => (
@@ -363,9 +389,20 @@ const WalletView = ({
   const [fundReference, setFundReference] = useState('');
   const [razorpayError, setRazorpayError] = useState('');
   const [paying, setPaying] = useState(false);
-  const released = Math.round(project.budget * Math.min(project.progress, 45) / 100);
-  const escrow = project.escrowAmount;
-  const unfunded = Math.max(project.budget - released - escrow, 0);
+  const recordedTransactions = transactions.filter(transaction => transaction.status === 'recorded');
+  const fundedFromLedger = recordedTransactions
+    .filter(transaction => transaction.transactionType === 'fund')
+    .reduce((total, transaction) => total + transaction.amount, 0);
+  const released = recordedTransactions
+    .filter(transaction => transaction.transactionType === 'release')
+    .reduce((total, transaction) => total + transaction.amount, 0);
+  const refunded = recordedTransactions
+    .filter(transaction => transaction.transactionType === 'refund')
+    .reduce((total, transaction) => total + transaction.amount, 0);
+  const totalPaid = fundedFromLedger || project.escrowAmount;
+  const escrow = Math.max(totalPaid - released - refunded, 0);
+  const unfunded = Math.max(project.budget - totalPaid, 0);
+  const walletPercent = (value: number) => value > 0 ? `${Math.max((value / Math.max(project.budget, 1)) * 100, 3)}%` : '0%';
   const requestedAmount = Math.round(Number(fundAmount || 0));
   const hasRazorpayKey = Boolean(getRazorpayKeyId());
 
@@ -423,16 +460,17 @@ const WalletView = ({
       <div className="wallet-hero-row">
         <div>
           <h2>Escrow wallet</h2>
-          <p>Funds unlock only after partner proof, customer approval, or audit resolution.</p>
+          <p>Funds paid by the customer are recorded here and unlock only after partner proof, customer approval, or audit resolution.</p>
         </div>
-        <strong>{formatCurrency(project.budget)}</strong>
+        <strong>{formatCurrency(totalPaid)}</strong>
       </div>
       <div className="wallet-bar">
-        <span className="released" style={{ width: `${Math.max((released / Math.max(project.budget, 1)) * 100, 4)}%` }} />
-        <span className="escrow" style={{ width: `${Math.max((escrow / Math.max(project.budget, 1)) * 100, 4)}%` }} />
-        <span className="unfunded" style={{ width: `${Math.max((unfunded / Math.max(project.budget, 1)) * 100, 4)}%` }} />
+        <span className="released" style={{ width: walletPercent(released) }} />
+        <span className="escrow" style={{ width: walletPercent(escrow) }} />
+        <span className="unfunded" style={{ width: walletPercent(unfunded) }} />
       </div>
       <div className="wallet-metrics">
+        <div><span>Paid by customer</span><strong>{formatCurrency(totalPaid)}</strong></div>
         <div><span>Released</span><strong>{formatCurrency(released)}</strong></div>
         <div><span>In escrow</span><strong>{formatCurrency(escrow)}</strong></div>
         <div><span>Unfunded</span><strong>{formatCurrency(unfunded)}</strong></div>
@@ -486,7 +524,7 @@ const WalletView = ({
           <div className="wallet-history-row" key={transaction.id}>
             <div>
               <strong>{transaction.transactionType}</strong>
-              <span>{transaction.providerReference || transaction.provider}</span>
+              <span>{transaction.providerReference || transaction.provider} - {transaction.status}</span>
             </div>
             <div>
               <strong>{formatCurrency(transaction.amount)}</strong>

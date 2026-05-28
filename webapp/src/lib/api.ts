@@ -136,6 +136,18 @@ export interface WalletTransaction {
   createdAt: string;
 }
 
+export interface PlatformUser {
+  uid: string;
+  displayName: string;
+  email: string;
+  role: 'homeowner' | 'contractor' | 'designer' | 'admin';
+  phoneNumber: string;
+  activeProject: string;
+  profileCompleted: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface BootstrapData {
   professionals: Professional[];
   applications: ProfessionalApplication[];
@@ -145,6 +157,7 @@ export interface BootstrapData {
   auditRequests: AuditRequest[];
   projectFiles: ProjectFile[];
   walletTransactions: WalletTransaction[];
+  users: PlatformUser[];
   auditPrice: number;
 }
 
@@ -304,6 +317,18 @@ type WalletTransactionRow = {
   provider_reference: string | null;
   note: string | null;
   created_at: string;
+};
+
+type UserProfileRow = {
+  uid: string;
+  display_name: string | null;
+  email: string | null;
+  role: PlatformUser['role'] | null;
+  phone_number: string | null;
+  active_project: string | null;
+  profile_completed: boolean | null;
+  created_at: string | null;
+  updated_at: string | null;
 };
 
 type SupabaseError = { message: string } | null | undefined;
@@ -516,6 +541,18 @@ const walletTransactionRow = (row: WalletTransactionRow): WalletTransaction => (
   createdAt: row.created_at,
 });
 
+const userProfileRow = (row: UserProfileRow): PlatformUser => ({
+  uid: row.uid,
+  displayName: row.display_name || row.email?.split('@')[0] || 'Unnamed user',
+  email: row.email || '',
+  role: row.role || 'homeowner',
+  phoneNumber: row.phone_number || '',
+  activeProject: row.active_project || '',
+  profileCompleted: Boolean(row.profile_completed),
+  createdAt: row.created_at || '',
+  updatedAt: row.updated_at || row.created_at || '',
+});
+
 export const api = {
   bootstrap: async (scope: DataScope = {}): Promise<BootstrapData> => {
     const database = getSupabaseClient();
@@ -540,6 +577,7 @@ export const api = {
         auditRequests: [],
         projectFiles: [],
         walletTransactions: [],
+        users: [],
         auditPrice: AUDIT_PRICE,
       };
     }
@@ -552,6 +590,7 @@ export const api = {
       auditRequestsResult,
       projectFilesResult,
       walletTransactionsResult,
+      userProfilesResult,
     ] = await Promise.all([
       isAdmin
         ? database.from('applications').select('*').order('created_at', { ascending: false })
@@ -562,11 +601,14 @@ export const api = {
       database.from('audit_requests').select('*').order('created_at', { ascending: false }),
       database.from('project_files').select('*').order('created_at', { ascending: false }),
       database.from('wallet_transactions').select('*').order('created_at', { ascending: false }),
+      isAdmin
+        ? database.from('user_profiles').select('*').order('updated_at', { ascending: false })
+        : Promise.resolve({ data: [], error: null }),
     ]);
 
     const walletTableMissing = walletTransactionsResult.error
       && /wallet_transactions|schema cache|does not exist|could not find/i.test(walletTransactionsResult.error.message);
-    [applicationsResult.error, projectsResult.error, siteUpdatesResult.error, remarksResult.error, auditRequestsResult.error, projectFilesResult.error].forEach(assertOk);
+    [applicationsResult.error, projectsResult.error, siteUpdatesResult.error, remarksResult.error, auditRequestsResult.error, projectFilesResult.error, userProfilesResult.error].forEach(assertOk);
     if (!walletTableMissing) assertOk(walletTransactionsResult.error);
 
     const professionals = ((professionalsResult.data || []) as ProfessionalRow[])
@@ -597,6 +639,7 @@ export const api = {
       auditRequests: ((auditRequestsResult.data || []) as AuditRequestRow[]).map(auditRow),
       projectFiles,
       walletTransactions: walletTableMissing ? [] : ((walletTransactionsResult.data || []) as WalletTransactionRow[]).map(walletTransactionRow),
+      users: isAdmin ? ((userProfilesResult.data || []) as UserProfileRow[]).map(userProfileRow) : [],
       auditPrice: AUDIT_PRICE,
     };
   },
@@ -744,6 +787,13 @@ export const api = {
       assertOk(retry.error);
     } else {
       assertOk(error);
+    }
+    if (body.customerUid) {
+      const profileResult = await database
+        .from('user_profiles')
+        .update({ active_project: legacyPayload.id })
+        .eq('uid', body.customerUid);
+      assertOk(profileResult.error);
     }
     return api.bootstrap({ uid: body.customerUid, role: 'homeowner' });
   },

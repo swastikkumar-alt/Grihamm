@@ -37,6 +37,7 @@ const Navbar = ({ isDark, toggleTheme }: { isDark: boolean; toggleTheme: () => v
     }
   };
 
+  const canOpenProfileSettings = userProfile?.role === 'homeowner' || userProfile?.role === 'admin';
   const dashboardLabel = userProfile?.role === 'admin'
     ? 'Admin Panel'
     : userProfile?.role === 'contractor' || userProfile?.role === 'designer'
@@ -144,6 +145,11 @@ const Navbar = ({ isDark, toggleTheme }: { isDark: boolean; toggleTheme: () => v
 
                     <div className="nav-menu-divider" />
 
+                    {canOpenProfileSettings && (
+                      <Link to="/track-project?tab=settings" onClick={() => setIsUserMenuOpen(false)} className="nav-menu-item">
+                        <Settings size={15} /> Profile Settings
+                      </Link>
+                    )}
                     <Link to={dashboardPath} onClick={() => setIsUserMenuOpen(false)} className="nav-menu-item">
                       {userProfile?.role === 'admin' ? <Settings size={15} /> : <LayoutDashboard size={15} />} {dashboardLabel}
                     </Link>

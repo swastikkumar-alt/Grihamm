@@ -8,13 +8,15 @@ import {
   MessageSquareText,
   ShieldCheck,
   UserRoundCheck,
+  UsersRound,
+  Wallet,
 } from 'lucide-react';
-import { api, formatCurrency, type ProfessionalType } from '../lib/api';
+import { api, formatCurrency, type PlatformUser, type ProfessionalType } from '../lib/api';
 import { supportedCities } from '../lib/platformConfig';
 import { useGrihammData } from '../lib/useGrihammData';
 import './Dashboard.css';
 
-type AdminTab = 'projects' | 'professionals' | 'applications' | 'updates' | 'audits';
+type AdminTab = 'projects' | 'professionals' | 'applications' | 'updates' | 'audits' | 'users' | 'wallet';
 
 const Admin = () => {
   const { data, loading, error, replaceData } = useGrihammData();
@@ -40,14 +42,32 @@ const Admin = () => {
   });
 
   const professionalsById = new Map((data?.professionals || []).map(item => [item.id, item]));
+  const projectsById = new Map((data?.projects || []).map(item => [item.id, item]));
+  const usersByUid = new Map((data?.users || []).map(item => [item.uid, item]));
+  const users = data?.users || [];
   const contractors = data?.professionals.filter(item => item.type === 'Contractor' && item.status === 'listed') || [];
   const openRemarks = data?.remarks.filter(item => item.status === 'open').length || 0;
+  const totalWalletPaid = (data?.walletTransactions || [])
+    .filter(transaction => transaction.transactionType === 'fund' && transaction.status === 'recorded')
+    .reduce((total, transaction) => total + transaction.amount, 0);
+  const getProjectPaid = (projectId: string) => (data?.walletTransactions || [])
+    .filter(transaction => transaction.projectId === projectId && transaction.transactionType === 'fund' && transaction.status === 'recorded')
+    .reduce((total, transaction) => total + transaction.amount, 0);
+  const getProjectReleased = (projectId: string) => (data?.walletTransactions || [])
+    .filter(transaction => transaction.projectId === projectId && transaction.transactionType === 'release' && transaction.status === 'recorded')
+    .reduce((total, transaction) => total + transaction.amount, 0);
+  const getProjectRefunded = (projectId: string) => (data?.walletTransactions || [])
+    .filter(transaction => transaction.projectId === projectId && transaction.transactionType === 'refund' && transaction.status === 'recorded')
+    .reduce((total, transaction) => total + transaction.amount, 0);
+  const getUserDisplay = (uid: string | null | undefined): PlatformUser | null => uid ? usersByUid.get(uid) || null : null;
 
   const stats = [
     { label: 'Projects', value: data?.projects.length || 0, icon: <Briefcase /> },
     { label: 'Listed professionals', value: data?.professionals.filter(item => item.status === 'listed').length || 0, icon: <ShieldCheck /> },
     { label: 'Applications pending', value: data?.applications.filter(item => item.status === 'pending').length || 0, icon: <UserRoundCheck /> },
     { label: 'Open remarks', value: openRemarks, icon: <MessageSquareText /> },
+    { label: 'Signed-in users', value: users.length, icon: <UsersRound /> },
+    { label: 'Wallet paid', value: formatCurrency(totalWalletPaid), icon: <Wallet /> },
   ];
 
   const serviceOptions = useMemo(() => Array.from(new Set((data?.professionals || []).flatMap(item => item.services))).slice(0, 10), [data?.professionals]);
@@ -133,67 +153,79 @@ const Admin = () => {
   };
 
   return (
-    <div className="dashboard-shell" style={{ background: 'var(--background)', minHeight: '100vh', padding: '110px 0 60px' }}>
+    <div className="dashboard-shell admin-console">
       <div className="container">
-        <div className="dashboard-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'end', gap: '2rem', flexWrap: 'wrap', marginBottom: '2rem' }}>
+        <div className="dashboard-header admin-header">
           <div>
-            <div style={{ color: 'var(--primary)', fontWeight: 900, fontSize: '0.72rem', letterSpacing: '0.14em', textTransform: 'uppercase' }}>Admin operations</div>
-            <h1 style={{ fontFamily: 'var(--font-serif)', fontSize: '3rem', letterSpacing: 0 }}>Control quality, assignments, and audits.</h1>
-            <p style={{ color: 'var(--text-muted)', maxWidth: 780, lineHeight: 1.7 }}>Admin should see the marketplace supply, pending applications, project delivery state, remarks, and paid audit requests from a single operations console.</p>
+            <div className="dashboard-kicker">Admin operations</div>
+            <h1>Control quality, assignments, and audits.</h1>
+            <p>Review marketplace supply, approve applications, assign contractors, inspect project proof, and close audit loops from one operations console.</p>
           </div>
-          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+          <div className="admin-tabs" role="tablist" aria-label="Admin sections">
             {[
               ['projects', 'Projects'],
               ['professionals', 'Professionals'],
               ['applications', 'Applications'],
               ['updates', 'Updates'],
               ['audits', 'Audits'],
+              ['users', 'Users'],
+              ['wallet', 'Wallet'],
             ].map(([id, label]) => (
-              <button key={id} onClick={() => setActiveTab(id as AdminTab)} style={tabStyle(activeTab === id)}>{label}</button>
+              <button key={id} type="button" onClick={() => setActiveTab(id as AdminTab)} className={activeTab === id ? 'active' : ''} aria-selected={activeTab === id}>{label}</button>
             ))}
           </div>
         </div>
 
-        {error && <div style={{ padding: '1rem', color: '#f59e0b', border: '1px solid rgba(245,158,11,0.35)', borderRadius: 8 }}>Check your Supabase environment variables and run the Supabase migration. {error}</div>}
-        {loading && <div className="glass" style={{ padding: '2rem', border: '1px solid var(--glass-border)' }}>Loading operations data...</div>}
-        {notice && <div style={{ marginBottom: '1rem', color: 'var(--primary)', fontWeight: 900 }}>{notice}</div>}
+        {error && <div className="dashboard-alert warning">Check your Supabase environment variables and run the Supabase migration. {error}</div>}
+        {loading && <div className="dashboard-card">Loading operations data...</div>}
+        {notice && <div className="dashboard-alert success">{notice}</div>}
 
         {data && (
           <>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(210px,1fr))', gap: '1rem', marginBottom: '2rem' }}>
+            <div className="admin-stat-grid">
               {stats.map(stat => (
-                <div key={stat.label} className="glass" style={{ padding: '1.3rem', border: '1px solid var(--glass-border)', borderRadius: 10 }}>
-                  <div style={{ color: 'var(--primary)', marginBottom: '0.9rem' }}>{stat.icon}</div>
-                  <strong style={{ fontSize: '1.8rem' }}>{stat.value}</strong>
-                  <span style={{ display: 'block', color: 'var(--text-muted)', fontSize: '0.86rem' }}>{stat.label}</span>
+                <div key={stat.label} className="admin-stat-card">
+                  <div>{stat.icon}</div>
+                  <strong>{stat.value}</strong>
+                  <span>{stat.label}</span>
                 </div>
               ))}
             </div>
 
             {activeTab === 'projects' && (
-              <section className="glass dashboard-panel" style={panelStyle}>
-                <h2 style={sectionTitle}>Projects</h2>
-                <div style={{ overflowX: 'auto' }}>
-                  <table className="dashboard-table" style={tableStyle}>
-                    <thead><tr>{['Project', 'Customer', 'Team', 'Progress', 'Assign contractor'].map(head => <th key={head}>{head}</th>)}</tr></thead>
+              <section className="dashboard-panel admin-panel">
+                <h2>Projects</h2>
+                <div className="dashboard-table-wrap">
+                  <table className="dashboard-table">
+                    <thead><tr>{['Project', 'Customer', 'Team', 'Wallet', 'Progress', 'Assign contractor'].map(head => <th key={head}>{head}</th>)}</tr></thead>
                     <tbody>
-                      {data.projects.map(project => (
-                        <tr key={project.id}>
-                          <td><strong>{project.id}</strong><span>{project.homeType} - {project.city}</span></td>
-                          <td>{project.customerName}</td>
-                          <td>
-                            <span>Designer: {professionalsById.get(project.designerId || '')?.name || 'Not assigned'}</span>
-                            <span>Contractor: {professionalsById.get(project.contractorId || '')?.name || 'Not assigned'}</span>
-                          </td>
-                          <td><strong>{project.progress}%</strong><span>{project.stage}</span></td>
-                          <td>
-                            <select defaultValue={project.contractorId || ''} onChange={event => void assignContractor(project.id, event.target.value)} style={inputStyle}>
-                              <option value="">Choose contractor</option>
-                              {contractors.map(contractor => <option key={contractor.id} value={contractor.id}>{contractor.name}</option>)}
-                            </select>
-                          </td>
-                        </tr>
-                      ))}
+                      {data.projects.map(project => {
+                        const paid = getProjectPaid(project.id) || project.escrowAmount;
+                        const released = getProjectReleased(project.id);
+                        const refunded = getProjectRefunded(project.id);
+                        const escrow = Math.max(paid - released - refunded, 0);
+                        return (
+                          <tr key={project.id}>
+                            <td><strong>{project.id}</strong><span>{project.homeType} - {project.city}</span></td>
+                            <td>{project.customerName}<span>{getUserDisplay(project.customerUid)?.email || project.customerUid || 'No login linked'}</span></td>
+                            <td>
+                              <span>Designer: {professionalsById.get(project.designerId || '')?.name || 'Not assigned'}</span>
+                              <span>Contractor: {professionalsById.get(project.contractorId || '')?.name || 'Not assigned'}</span>
+                            </td>
+                            <td>
+                              <strong>{formatCurrency(paid)}</strong>
+                              <span>Escrow: {formatCurrency(escrow)}</span>
+                            </td>
+                            <td><strong>{project.progress}%</strong><span>{project.stage}</span></td>
+                            <td>
+                              <select defaultValue={project.contractorId || ''} onChange={event => void assignContractor(project.id, event.target.value)} className="admin-input">
+                                <option value="">Choose contractor</option>
+                                {contractors.map(contractor => <option key={contractor.id} value={contractor.id}>{contractor.name}</option>)}
+                              </select>
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
@@ -201,12 +233,12 @@ const Admin = () => {
             )}
 
             {activeTab === 'professionals' && (
-              <div className="admin-supply-grid" style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) 340px', gap: '1.5rem', alignItems: 'start' }}>
-                <section className="glass dashboard-panel" style={panelStyle}>
-                  <h2 style={sectionTitle}>Marketplace Supply</h2>
-                  <div style={{ display: 'grid', gap: '1rem' }}>
+              <div className="admin-supply-grid">
+                <section className="dashboard-panel admin-panel">
+                  <h2>Marketplace Supply</h2>
+                  <div className="admin-row-list">
                     {data.professionals.map(pro => (
-                      <div key={pro.id} className="dashboard-row-card" style={rowCardStyle}>
+                      <div key={pro.id} className="dashboard-row-card admin-row-card">
                         <div>
                           <strong>{pro.name}</strong>
                           <span>{pro.type} - {pro.city} - {formatCurrency(pro.startingPrice)} {pro.priceUnit}</span>
@@ -217,27 +249,25 @@ const Admin = () => {
                             <span>{pro.portfolioImages.length} showcase image{pro.portfolioImages.length === 1 ? '' : 's'} uploaded</span>
                           )}
                         </div>
-                        <div style={{ display: 'grid', gap: '0.6rem' }}>
+                        <div className="admin-row-actions">
                           <input
-                            style={{ ...inputStyle, minWidth: 220 }}
+                            className="admin-input"
                             placeholder="Academy certificate/course"
                             value={certificationDrafts[pro.id] ?? pro.academyCredential}
                             onChange={event => setCertificationDrafts(prev => ({ ...prev, [pro.id]: event.target.value }))}
                           />
-                          <button className="btn-outline" style={{ borderRadius: 8 }} onClick={() => void toggleProfessional(pro.id, pro.status === 'listed' ? 'paused' : 'listed')}>
+                          <button className="btn-outline" onClick={() => void toggleProfessional(pro.id, pro.status === 'listed' ? 'paused' : 'listed')}>
                             {pro.status === 'listed' ? 'Pause' : 'List'}
                           </button>
                           <button
                             className="btn-primary"
-                            style={{ borderRadius: 8, padding: '0.8rem 1rem' }}
                             onClick={() => void updateCertification(pro.id, true, (certificationDrafts[pro.id] ?? pro.academyCredential) || 'Grihamm Academy verified')}
                           >
                             {pro.grihammCertified ? 'Save certificate' : 'Mark certified'}
                           </button>
                           {pro.grihammCertified && (
                             <button
-                              className="btn-outline"
-                              style={{ borderRadius: 8, color: '#ff5f56' }}
+                              className="btn-outline danger"
                               onClick={() => void updateCertification(pro.id, false, '')}
                             >
                               Remove certificate
@@ -249,58 +279,58 @@ const Admin = () => {
                   </div>
                 </section>
 
-                <section className="glass dashboard-panel" style={panelStyle}>
-                  <h2 style={sectionTitle}>Add Professional</h2>
-                  <div style={{ display: 'grid', gap: '0.9rem' }}>
-                    <input style={inputStyle} placeholder="Name" value={professionalForm.name} onChange={event => setProfessionalForm(prev => ({ ...prev, name: event.target.value }))} />
-                    <select style={inputStyle} value={professionalForm.type} onChange={event => setProfessionalForm(prev => ({ ...prev, type: event.target.value as ProfessionalType }))}>
+                <section className="dashboard-panel admin-panel">
+                  <h2>Add Professional</h2>
+                  <div className="admin-form-stack">
+                    <input className="admin-input" placeholder="Name" value={professionalForm.name} onChange={event => setProfessionalForm(prev => ({ ...prev, name: event.target.value }))} />
+                    <select className="admin-input" value={professionalForm.type} onChange={event => setProfessionalForm(prev => ({ ...prev, type: event.target.value as ProfessionalType }))}>
                       <option>Contractor</option>
                       <option>Interior Designer</option>
                     </select>
-                    <select style={inputStyle} value={professionalForm.city} onChange={event => setProfessionalForm(prev => ({ ...prev, city: event.target.value }))}>
+                    <select className="admin-input" value={professionalForm.city} onChange={event => setProfessionalForm(prev => ({ ...prev, city: event.target.value }))}>
                       {supportedCities.map(item => <option key={item}>{item}</option>)}
                     </select>
-                    <input style={inputStyle} placeholder="Phone" value={professionalForm.phone} onChange={event => setProfessionalForm(prev => ({ ...prev, phone: event.target.value }))} />
-                    <input style={inputStyle} type="number" placeholder="Experience years" value={professionalForm.experienceYears} onChange={event => setProfessionalForm(prev => ({ ...prev, experienceYears: Number(event.target.value) }))} />
-                    <input style={inputStyle} type="number" placeholder="Clients served on Grihamm" value={professionalForm.clientsServed} onChange={event => setProfessionalForm(prev => ({ ...prev, clientsServed: Number(event.target.value) }))} />
-                    <input style={inputStyle} placeholder="GSTIN" value={professionalForm.gstin} onChange={event => setProfessionalForm(prev => ({ ...prev, gstin: event.target.value.toUpperCase() }))} />
-                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.7rem', color: 'var(--text-muted)', fontSize: '0.86rem' }}>
-                      <input type="checkbox" checked={professionalForm.grihammCertified} onChange={event => setProfessionalForm(prev => ({ ...prev, grihammCertified: event.target.checked }))} style={{ accentColor: 'var(--primary)', width: 16, height: 16 }} />
+                    <input className="admin-input" placeholder="Phone" value={professionalForm.phone} onChange={event => setProfessionalForm(prev => ({ ...prev, phone: event.target.value }))} />
+                    <input className="admin-input" type="number" placeholder="Experience years" value={professionalForm.experienceYears} onChange={event => setProfessionalForm(prev => ({ ...prev, experienceYears: Number(event.target.value) }))} />
+                    <input className="admin-input" type="number" placeholder="Clients served on Grihamm" value={professionalForm.clientsServed} onChange={event => setProfessionalForm(prev => ({ ...prev, clientsServed: Number(event.target.value) }))} />
+                    <input className="admin-input" placeholder="GSTIN" value={professionalForm.gstin} onChange={event => setProfessionalForm(prev => ({ ...prev, gstin: event.target.value.toUpperCase() }))} />
+                    <label className="admin-checkbox">
+                      <input type="checkbox" checked={professionalForm.grihammCertified} onChange={event => setProfessionalForm(prev => ({ ...prev, grihammCertified: event.target.checked }))} />
                       Grihamm Certified
                     </label>
-                    <input style={inputStyle} placeholder="Academy certificate/course" value={professionalForm.academyCredential} onChange={event => setProfessionalForm(prev => ({ ...prev, academyCredential: event.target.value }))} />
-                    <input style={inputStyle} type="number" placeholder="Starting price" value={professionalForm.startingPrice} onChange={event => setProfessionalForm(prev => ({ ...prev, startingPrice: Number(event.target.value) }))} />
-                    <input style={inputStyle} placeholder="Price unit" value={professionalForm.priceUnit} onChange={event => setProfessionalForm(prev => ({ ...prev, priceUnit: event.target.value }))} />
-                    <input style={inputStyle} placeholder={`Services${serviceOptions.length ? ` e.g. ${serviceOptions.slice(0, 2).join(', ')}` : ''}`} value={professionalForm.servicesText} onChange={event => setProfessionalForm(prev => ({ ...prev, servicesText: event.target.value }))} />
-                    <input style={inputStyle} placeholder="Service areas" value={professionalForm.serviceAreasText} onChange={event => setProfessionalForm(prev => ({ ...prev, serviceAreasText: event.target.value }))} />
-                    <textarea style={{ ...inputStyle, minHeight: 80, resize: 'vertical' }} placeholder="Past work image URLs, separated by comma" value={professionalForm.portfolioImagesText} onChange={event => setProfessionalForm(prev => ({ ...prev, portfolioImagesText: event.target.value }))} />
-                    <textarea style={{ ...inputStyle, minHeight: 90, resize: 'vertical' }} placeholder="Bio" value={professionalForm.bio} onChange={event => setProfessionalForm(prev => ({ ...prev, bio: event.target.value }))} />
-                    <button className="btn-primary" style={{ borderRadius: 8 }} onClick={() => void addProfessional()}>ADD & LIST</button>
+                    <input className="admin-input" placeholder="Academy certificate/course" value={professionalForm.academyCredential} onChange={event => setProfessionalForm(prev => ({ ...prev, academyCredential: event.target.value }))} />
+                    <input className="admin-input" type="number" placeholder="Starting price" value={professionalForm.startingPrice} onChange={event => setProfessionalForm(prev => ({ ...prev, startingPrice: Number(event.target.value) }))} />
+                    <input className="admin-input" placeholder="Price unit" value={professionalForm.priceUnit} onChange={event => setProfessionalForm(prev => ({ ...prev, priceUnit: event.target.value }))} />
+                    <input className="admin-input" placeholder={`Services${serviceOptions.length ? ` e.g. ${serviceOptions.slice(0, 2).join(', ')}` : ''}`} value={professionalForm.servicesText} onChange={event => setProfessionalForm(prev => ({ ...prev, servicesText: event.target.value }))} />
+                    <input className="admin-input" placeholder="Service areas" value={professionalForm.serviceAreasText} onChange={event => setProfessionalForm(prev => ({ ...prev, serviceAreasText: event.target.value }))} />
+                    <textarea className="admin-input" placeholder="Past work image URLs, separated by comma" value={professionalForm.portfolioImagesText} onChange={event => setProfessionalForm(prev => ({ ...prev, portfolioImagesText: event.target.value }))} />
+                    <textarea className="admin-input" placeholder="Bio" value={professionalForm.bio} onChange={event => setProfessionalForm(prev => ({ ...prev, bio: event.target.value }))} />
+                    <button className="btn-primary" onClick={() => void addProfessional()}>Add & List</button>
                   </div>
                 </section>
               </div>
             )}
 
             {activeTab === 'applications' && (
-              <section className="glass dashboard-panel" style={panelStyle}>
-                <h2 style={sectionTitle}>Applications</h2>
-                <div style={{ display: 'grid', gap: '1rem' }}>
+              <section className="dashboard-panel admin-panel">
+                <h2>Applications</h2>
+                <div className="admin-row-list">
                   {data.applications.map(application => (
-                    <div key={application.id} className="dashboard-row-card" style={rowCardStyle}>
+                    <div key={application.id} className="dashboard-row-card admin-row-card">
                       <div>
                         <strong>{application.name}</strong>
                         <span>{application.type} - {application.city} - {application.experience}</span>
                         <span>{application.services.join(', ')} - {formatCurrency(application.startingPrice)} {application.priceUnit}</span>
                         <span>{application.clientsServed} Grihamm/similar clients - GSTIN {application.gstin || 'not provided'} - {application.portfolioImages.length} work image{application.portfolioImages.length === 1 ? '' : 's'}</span>
                         <span>{application.grihammCertified ? `Academy certificate: ${application.academyCredential || 'Claimed, verify before listing'}` : 'No Grihamm Academy certificate claimed'}</span>
-                        <p style={{ color: 'var(--text-muted)', marginTop: 6 }}>{application.summary}</p>
+                        <p className="admin-row-note">{application.summary}</p>
                       </div>
                       {application.status === 'pending' ? (
-                        <div style={{ display: 'flex', gap: '0.6rem' }}>
-                          <button className="btn-primary" style={{ borderRadius: 8 }} onClick={() => void updateApplication(application.id, 'approved')}>Approve</button>
-                          <button className="btn-outline" style={{ borderRadius: 8, color: '#ff5f56' }} onClick={() => void updateApplication(application.id, 'rejected')}>Reject</button>
+                        <div className="admin-inline-actions">
+                          <button className="btn-primary" onClick={() => void updateApplication(application.id, 'approved')}>Approve</button>
+                          <button className="btn-outline danger" onClick={() => void updateApplication(application.id, 'rejected')}>Reject</button>
                         </div>
-                      ) : <strong style={{ textTransform: 'capitalize' }}>{application.status}</strong>}
+                      ) : <strong className="admin-status">{application.status}</strong>}
                     </div>
                   ))}
                 </div>
@@ -308,16 +338,16 @@ const Admin = () => {
             )}
 
             {activeTab === 'updates' && (
-              <section className="glass dashboard-panel" style={panelStyle}>
-                <h2 style={sectionTitle}>Site Updates and Remarks</h2>
-                <div style={{ display: 'grid', gap: '1rem' }}>
+              <section className="dashboard-panel admin-panel">
+                <h2>Site Updates and Remarks</h2>
+                <div className="admin-row-list">
                   {data.siteUpdates.map(update => (
-                    <div key={update.id} className="dashboard-row-card" style={rowCardStyle}>
-                      <Camera color="var(--primary)" />
+                    <div key={update.id} className="dashboard-row-card admin-row-card compact">
+                      <Camera className="admin-row-icon" />
                       <div>
                         <strong>{update.title}</strong>
                         <span>{update.projectId} - {professionalsById.get(update.professionalId)?.name || 'Professional'}</span>
-                        <p style={{ color: 'var(--text-muted)', marginTop: 6 }}>{update.summary}</p>
+                        <p className="admin-row-note">{update.summary}</p>
                       </div>
                     </div>
                   ))}
@@ -326,18 +356,18 @@ const Admin = () => {
             )}
 
             {activeTab === 'audits' && (
-              <section className="glass dashboard-panel" style={panelStyle}>
-                <h2 style={sectionTitle}>Paid Grihamm Site Audits</h2>
-                <div style={{ display: 'grid', gap: '1rem' }}>
-                  {data.auditRequests.length === 0 && <p style={{ color: 'var(--text-muted)' }}>No audit requests yet.</p>}
+              <section className="dashboard-panel admin-panel">
+                <h2>Paid Grihamm Site Audits</h2>
+                <div className="admin-row-list">
+                  {data.auditRequests.length === 0 && <p className="admin-row-note">No audit requests yet.</p>}
                   {data.auditRequests.map(audit => (
-                    <div key={audit.id} className="dashboard-row-card" style={rowCardStyle}>
+                    <div key={audit.id} className="dashboard-row-card admin-row-card">
                       <div>
                         <strong>{audit.projectId} - {formatCurrency(audit.price)}</strong>
                         <span>{audit.reason}</span>
                         <span>Preferred slot: {audit.preferredSlot || 'Not provided'}</span>
                       </div>
-                      <select value={audit.status} onChange={event => void updateAudit(audit.id, event.target.value)} style={inputStyle}>
+                      <select value={audit.status} onChange={event => void updateAudit(audit.id, event.target.value)} className="admin-input">
                         <option value="requested">Requested</option>
                         <option value="scheduled">Scheduled</option>
                         <option value="visited">Visited</option>
@@ -349,18 +379,79 @@ const Admin = () => {
               </section>
             )}
 
-            <section className="glass dashboard-panel" style={{ ...panelStyle, marginTop: '1.5rem' }}>
-              <h2 style={sectionTitle}>What admin should watch</h2>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(220px,1fr))', gap: '1rem' }}>
+            {activeTab === 'users' && (
+              <section className="dashboard-panel admin-panel">
+                <h2>Signed-in users</h2>
+                <div className="dashboard-table-wrap">
+                  <table className="dashboard-table">
+                    <thead><tr>{['User', 'Role', 'Phone', 'Active project', 'Profile', 'Last updated'].map(head => <th key={head}>{head}</th>)}</tr></thead>
+                    <tbody>
+                      {users.length === 0 && (
+                        <tr>
+                          <td colSpan={6}>No signed-in user profiles found.</td>
+                        </tr>
+                      )}
+                      {users.map(user => (
+                        <tr key={user.uid}>
+                          <td><strong>{user.displayName}</strong><span>{user.email || user.uid}</span></td>
+                          <td><strong>{user.role}</strong></td>
+                          <td>{user.phoneNumber || 'Not added'}</td>
+                          <td>{user.activeProject || data.projects.find(project => project.customerUid === user.uid)?.id || 'None'}</td>
+                          <td>{user.profileCompleted ? 'Completed' : 'Incomplete'}</td>
+                          <td>{user.updatedAt ? new Date(user.updatedAt).toLocaleString('en-IN') : 'Unknown'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </section>
+            )}
+
+            {activeTab === 'wallet' && (
+              <section className="dashboard-panel admin-panel">
+                <h2>Wallet payments</h2>
+                <div className="dashboard-table-wrap">
+                  <table className="dashboard-table">
+                    <thead><tr>{['User', 'Project', 'Amount', 'Type', 'Gateway', 'Status', 'Recorded'].map(head => <th key={head}>{head}</th>)}</tr></thead>
+                    <tbody>
+                      {data.walletTransactions.length === 0 && (
+                        <tr>
+                          <td colSpan={7}>No wallet transactions recorded yet.</td>
+                        </tr>
+                      )}
+                      {data.walletTransactions.map(transaction => {
+                        const project = projectsById.get(transaction.projectId);
+                        const user = getUserDisplay(transaction.actorUid);
+                        return (
+                          <tr key={transaction.id}>
+                            <td><strong>{user?.displayName || project?.customerName || transaction.actorUid || 'Unknown user'}</strong><span>{user?.email || transaction.actorUid}</span></td>
+                            <td><strong>{transaction.projectId}</strong><span>{project ? `${project.homeType} - ${project.city}` : 'Project not found'}</span></td>
+                            <td><strong>{formatCurrency(transaction.amount)}</strong></td>
+                            <td>{transaction.transactionType}</td>
+                            <td><strong>{transaction.provider}</strong><span>{transaction.providerReference || 'No reference'}</span></td>
+                            <td>{transaction.status}</td>
+                            <td>{new Date(transaction.createdAt).toLocaleString('en-IN')}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </section>
+            )}
+
+            <section className="dashboard-panel admin-panel admin-watch-panel">
+              <h2>What admin should watch</h2>
+              <div className="admin-watch-grid">
                 {[
                   [<AlertTriangle key="a" />, 'Open remarks', 'Customer remarks should be closed before payout.'],
                   [<BadgeIndianRupee key="b" />, 'Escrow checks', 'Release only after photos, customer approval, or Grihamm audit.'],
                   [<ClipboardCheck key="c" />, 'Application quality', 'Approve only profiles with price, services, and city coverage.'],
                 ].map(([icon, title, text]) => (
-                  <div key={String(title)} style={{ padding: '1rem', border: '1px solid var(--glass-border)', borderRadius: 8 }}>
-                    <div style={{ color: 'var(--primary)' }}>{icon}</div>
+                  <div key={String(title)}>
+                    <div>{icon}</div>
                     <strong>{title}</strong>
-                    <p style={{ color: 'var(--text-muted)', fontSize: '0.86rem', lineHeight: 1.6 }}>{text}</p>
+                    <p>{text}</p>
                   </div>
                 ))}
               </div>
@@ -370,56 +461,6 @@ const Admin = () => {
       </div>
     </div>
   );
-};
-
-const tabStyle = (active: boolean): React.CSSProperties => ({
-  padding: '0.7rem 1rem',
-  borderRadius: 8,
-  border: active ? '1px solid var(--primary)' : '1px solid var(--glass-border)',
-  background: active ? 'var(--primary)' : 'var(--surface)',
-  color: active ? '#111' : 'var(--text)',
-  fontWeight: 900,
-  fontSize: '0.76rem',
-  textTransform: 'uppercase',
-});
-
-const panelStyle: React.CSSProperties = {
-  padding: '1.6rem',
-  border: '1px solid var(--glass-border)',
-  borderRadius: 10,
-};
-
-const sectionTitle: React.CSSProperties = {
-  fontFamily: 'var(--font-serif)',
-  fontSize: '2rem',
-  letterSpacing: 0,
-  marginBottom: '1rem',
-};
-
-const tableStyle: React.CSSProperties = {
-  width: '100%',
-  minWidth: 820,
-  borderCollapse: 'collapse',
-};
-
-const inputStyle: React.CSSProperties = {
-  width: '100%',
-  padding: '0.8rem',
-  borderRadius: 8,
-  border: '1px solid var(--glass-border)',
-  background: 'var(--surface)',
-  color: 'var(--text)',
-};
-
-const rowCardStyle: React.CSSProperties = {
-  display: 'grid',
-  gridTemplateColumns: 'minmax(0,1fr) auto',
-  gap: '1rem',
-  alignItems: 'center',
-  padding: '1rem',
-  border: '1px solid var(--glass-border)',
-  borderRadius: 8,
-  background: 'var(--surface)',
 };
 
 export default Admin;

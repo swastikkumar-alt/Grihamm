@@ -1,14 +1,13 @@
 import { useMemo, useState, type ComponentType } from 'react';
 import {
+  ArrowRight,
   BadgeIndianRupee,
-  CheckCircle2,
+  Check,
   ClipboardCheck,
   FileUp,
   HardHat,
   Home,
   MapPin,
-  ShieldCheck,
-  Sparkles,
   Star,
   X,
 } from 'lucide-react';
@@ -26,16 +25,11 @@ const tabs: { id: AppTab; label: string; icon: ComponentType<{ size?: number }> 
   { id: 'contractors', label: 'Contractors', icon: HardHat },
 ];
 
-const bookingHighlights = [
-  { label: 'Verified partner match', value: 'City + budget fit' },
-  { label: 'Milestone control', value: 'Proof-led releases' },
-  { label: 'Audit ready', value: 'Files, notes, approvals' },
-];
-
-const bookingProofPoints = [
-  'Partner profiles are reviewed before listing.',
-  'Budgets stay mapped to scope and milestone proof.',
-  'Homeowners, contractors, and operations work from one brief.',
+const grihammTrustPoints = [
+  'Milestone escrow: released only on photo-verified completion.',
+  'Every contractor is field-audited by a senior project manager before listing.',
+  'Free physical audit on request, with refund support for unfinished work.',
+  'No design fees. No call centre. One PM, one WhatsApp thread.',
 ];
 
 const allowedFileTypes = ['image/', 'application/pdf'];
@@ -161,6 +155,7 @@ const BookingBrief = ({
   files,
   onFiles,
   loading,
+  professionals,
 }: {
   booking: typeof defaultBooking;
   updateBooking: <K extends keyof typeof defaultBooking>(field: K, value: (typeof defaultBooking)[K]) => void;
@@ -168,6 +163,7 @@ const BookingBrief = ({
   files: File[];
   onFiles: (files: File[]) => void;
   loading: boolean;
+  professionals: Professional[];
 }) => {
   const handleFileInput = (list: FileList | null) => {
     if (!list) return;
@@ -177,125 +173,75 @@ const BookingBrief = ({
       .slice(0, 8);
     onFiles(nextFiles);
   };
-  const selectedProjectType = projectTypes.find(item => item.label === booking.projectType) || projectTypes[0];
+  const selectedProjectType = projectTypes.find(item => item.label === booking.projectType);
   const isCustomSpace = booking.propertySubtype.toLowerCase().startsWith('custom');
+  const listedProfessionals = professionals.filter(item => item.status === 'listed');
+  const tradeCategoryCount = new Set(listedProfessionals.flatMap(item => item.services)).size;
+  const activeCityLabel = booking.city || supportedCities.join(' / ');
 
   return (
     <section className="mvp-book-grid">
-      <div className="mvp-book-intro">
-        <h1>Book verified interiors execution.</h1>
-        <p className="mvp-lead">
-          Share the site brief, attach plans or photos, choose verified partners, and keep every milestone tied to proof.
-        </p>
-
-        <div className="mvp-hero-visual" aria-label="Premium interior project preview">
-          <img src="/hero-bg.png" alt="Finished premium living room interior" />
-          <div className="mvp-hero-overlay">
-            <div>
-              <span>Brief quality</span>
-              <strong>Ready for team matching</strong>
-            </div>
-            <div className="mvp-hero-icons" aria-hidden="true">
-              <ShieldCheck size={18} />
-              <Sparkles size={18} />
-              <CheckCircle2 size={18} />
-            </div>
-          </div>
-        </div>
-
-        <div className="mvp-highlight-grid">
-          {bookingHighlights.map(item => (
-            <div key={item.label}>
-              <span>{item.label}</span>
-              <strong>{item.value}</strong>
-            </div>
-          ))}
-        </div>
-
-        <div className="mvp-proof-list">
-          {bookingProofPoints.map(item => (
-            <span key={item}><CheckCircle2 size={15} /> {item}</span>
-          ))}
-        </div>
-      </div>
-
-      <div>
-        <div className="mvp-form-card">
-          <div className="mvp-form-grid mvp-date-grid">
-            <label className="mvp-field">
-              <span>When do you want to start?</span>
-              <input
-                type="date"
-                min={todayInputValue()}
-                value={booking.desiredStartDate}
-                onChange={event => updateBooking('desiredStartDate', event.target.value)}
-              />
-            </label>
-            <label className="mvp-field">
-              <span>Target handover date</span>
-              <input
-                type="date"
-                min={booking.desiredStartDate || todayInputValue()}
-                value={booking.targetHandoverDate}
-                onChange={event => updateBooking('targetHandoverDate', event.target.value)}
-              />
-            </label>
-          </div>
-          <p className="mvp-date-note">
-            We use these calendar dates to avoid shortlisting contractors who already have active Grihamm projects in the same window.
+      <div className="mvp-book-main">
+        <div className="mvp-book-copy">
+          <h1>Tell us about your home.</h1>
+          <p>
+            A senior project manager will review your brief within 24 hours. No design fees.
+            No call centre. Funds stay in your wallet until each milestone is photo-verified.
           </p>
+        </div>
 
-          <div className="mvp-form-grid">
-            <label className="mvp-field">
-              <span>Timeline notes</span>
-              <input value={booking.timeline} onChange={event => updateBooking('timeline', event.target.value)} placeholder="e.g. weekdays only, society work hours, phased handover" />
-            </label>
-          </div>
-
+        <div className="mvp-form-card">
           <div className="mvp-form-grid">
             <label className="mvp-field">
               <span>Project type</span>
               <select
                 value={booking.projectType}
                 onChange={event => {
-                  const nextType = projectTypes.find(item => item.label === event.target.value) || projectTypes[0];
+                  const nextType = projectTypes.find(item => item.label === event.target.value);
+                  if (!nextType) return;
                   updateBooking('projectType', event.target.value);
                   updateBooking('propertySubtype', nextType.spaces[0]);
                   updateBooking('customSpace', '');
                   updateBooking('homeType', `${nextType.label} - ${nextType.spaces[0]}`);
                 }}
               >
+                <option value="" disabled>Choose project type</option>
                 {projectTypes.map(item => <option key={item.label}>{item.label}</option>)}
               </select>
             </label>
             <label className="mvp-field">
-              <span>City</span>
+              <span>Locality ({supportedCities.join(' / ')} pilot)</span>
               <select value={booking.city} onChange={event => updateBooking('city', event.target.value)}>
+                <option value="" disabled>Choose city</option>
                 {supportedCities.map(item => <option key={item}>{item}</option>)}
               </select>
             </label>
           </div>
 
           <div className="mvp-field">
-            <span>Space size</span>
-            <div className="mvp-soft-options">
-              {selectedProjectType.spaces.map(option => (
-                <button
-                  key={option}
-                  type="button"
-                  className={booking.propertySubtype === option ? 'active' : ''}
-                  onClick={() => {
-                    updateBooking('propertySubtype', option);
-                    if (!option.toLowerCase().startsWith('custom')) {
-                      updateBooking('customSpace', '');
-                    }
-                    updateBooking('homeType', `${booking.projectType || 'Project'} - ${option}`);
-                  }}
-                >
-                  {option}
-                </button>
-              ))}
-            </div>
+            <span>Home or space type</span>
+            {selectedProjectType ? (
+              <div className="mvp-soft-options">
+                {selectedProjectType.spaces.map(option => (
+                  <button
+                    key={option}
+                    type="button"
+                    className={booking.propertySubtype === option ? 'active' : ''}
+                    onClick={() => {
+                      updateBooking('propertySubtype', option);
+                      if (!option.toLowerCase().startsWith('custom')) {
+                        updateBooking('customSpace', '');
+                      }
+                      updateBooking('homeType', `${booking.projectType || 'Project'} - ${option}`);
+                    }}
+                  >
+                    {option}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div className="mvp-choice-placeholder">Choose a project type to load relevant space options.</div>
+            )}
           </div>
 
           {isCustomSpace && (
@@ -320,9 +266,15 @@ const BookingBrief = ({
               </select>
             </label>
             <label className="mvp-field">
-              <span>Area sq ft</span>
-              <input type="number" min="0" value={booking.areaSqft} onChange={event => updateBooking('areaSqft', Number(event.target.value))} />
+              <span>Measured area (sq ft)</span>
+              <input type="number" min="0" value={booking.areaSqft || ''} onChange={event => updateBooking('areaSqft', Number(event.target.value))} placeholder="e.g. 1180" />
             </label>
+          </div>
+
+          <div className="mvp-budget-line">
+            <span>Approx. budget</span>
+            <strong>{formatCurrency(booking.budgetMin)} - {formatCurrency(booking.budgetMax)}</strong>
+            <p>Released milestone-by-milestone. You always control the wallet.</p>
           </div>
 
           <div className="mvp-form-grid">
@@ -352,20 +304,46 @@ const BookingBrief = ({
             </label>
           </div>
 
-          <label className="mvp-field">
-            <span>Scope notes</span>
-            <textarea
-              value={booking.scopeText}
-              onChange={event => updateBooking('scopeText', event.target.value)}
-              placeholder="Rooms, materials, existing constraints, floor changes, retained furniture, vastu needs, dust limits, lift access, working-hour restrictions, or anything the project manager should know."
-            />
-          </label>
+          <div className="mvp-timeline-panel">
+            <div className="mvp-timeline-head">
+              <span>Calendar-aware matching</span>
+              <strong>Choose your project window.</strong>
+              <p>We check contractor load before shortlisting, so active projects do not collide with your start date.</p>
+            </div>
+            <div className="mvp-form-grid mvp-date-grid">
+              <label className="mvp-field">
+                <span>When do you want to start?</span>
+                <input
+                  type="date"
+                  min={todayInputValue()}
+                  value={booking.desiredStartDate}
+                  onChange={event => updateBooking('desiredStartDate', event.target.value)}
+                />
+              </label>
+              <label className="mvp-field">
+                <span>Target handover date</span>
+                <input
+                  type="date"
+                  min={booking.desiredStartDate || todayInputValue()}
+                  value={booking.targetHandoverDate}
+                  onChange={event => updateBooking('targetHandoverDate', event.target.value)}
+                />
+              </label>
+            </div>
+            <label className="mvp-field">
+              <span>Timeline notes</span>
+              <input value={booking.timeline} onChange={event => updateBooking('timeline', event.target.value)} placeholder="e.g. weekdays only, society work hours, phased handover" />
+            </label>
+            <p className="mvp-date-note">
+              We use these calendar dates to avoid shortlisting contractors who already have active Grihamm projects in the same window.
+            </p>
+          </div>
 
           <label className="mvp-file-drop">
             <input type="file" accept="image/*,application/pdf" multiple onChange={event => handleFileInput(event.target.files)} />
             <FileUp size={20} />
-            <strong>Attach floor plans, current photos, references, or BOQs</strong>
-            <span>Images or PDFs up to 8 MB each. Files upload after booking is created.</span>
+            <strong>Tell us more with plans or photos (optional)</strong>
+            <span>Attach floor plans, current photos, references, or BOQs. Images and PDFs can be up to 8 MB each.</span>
           </label>
 
           {files.length > 0 && (
@@ -377,11 +355,53 @@ const BookingBrief = ({
           )}
 
           <button className="mvp-primary" type="button" disabled={loading} onClick={onSubmit}>
-            {loading ? 'Checking brief...' : 'See verified team'}
+            {loading ? 'Checking brief...' : <>See partners near you <ArrowRight size={15} /></>}
           </button>
         </div>
       </div>
 
+      <aside className="mvp-book-side" aria-label="Grihamm booking standards">
+        <section className="mvp-why-card">
+          <span>Why Grihamm</span>
+          <h2>Your money stays in your wallet.</h2>
+          <ul>
+            {grihammTrustPoints.map(item => (
+              <li key={item}>
+                <Check size={15} />
+                <span>{item}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+
+        <section className="mvp-snapshot-card">
+          <div className="mvp-snapshot-head">
+            <span>Pilot snapshot</span>
+            <small>Live in {activeCityLabel}</small>
+          </div>
+          <div className="mvp-snapshot-metrics">
+            <div>
+              <strong>{listedProfessionals.length || '-'}</strong>
+              <span>partners</span>
+            </div>
+            <div>
+              <strong>{tradeCategoryCount || '-'}</strong>
+              <span>trade categories</span>
+            </div>
+            <div>
+              <strong>24H</strong>
+              <span>PM response</span>
+            </div>
+          </div>
+        </section>
+
+        <section className="mvp-calendar-card">
+          <span>Slot check</span>
+          <p>
+            Pick start and handover dates in the form. Contractors already carrying active Grihamm work are shown with their current load before booking.
+          </p>
+        </section>
+      </aside>
     </section>
   );
 };
@@ -392,35 +412,34 @@ const RecommendedTeam = ({ professionals, projects, booking, onBook }: { profess
     && item.city === booking.city
     && estimateProfessionalCost(item, booking.areaSqft) <= Math.max(booking.budgetMax, 1)
   ));
-  const designer = listed.find(item => item.type === 'Interior Designer') || listed[0];
-  const contractors = listed.filter(item => item.type === 'Contractor').slice(0, 4);
-  const team = [designer, ...contractors].filter(Boolean) as Professional[];
+  const recommendedPartner = listed.find(item => item.type === 'Contractor') || listed[0] || null;
 
   return (
     <section className="mvp-section">
       <div className="mvp-section-head">
         <div>
-          <h2>Recommended team for this brief</h2>
-          <p>{booking.homeType} in {booking.city}. Matches are filtered from listed Supabase partners by city, budget, and role.</p>
+          <h2>Recommended partner for this brief</h2>
+          <p>{booking.homeType} in {booking.city}. The first match is filtered from listed Supabase partners by city, budget, availability, and project load.</p>
         </div>
         <button className="mvp-secondary" type="button" onClick={() => onBook()}>Create request</button>
       </div>
 
       <div className="mvp-team-grid">
-        {team.length === 0 && <div className="mvp-empty">No listed specialists match this city yet. Create a request and operations can assign manually.</div>}
-        {team.map(member => (
-          <article className="mvp-team-card" key={member.id}>
+        {!recommendedPartner && <div className="mvp-empty">No listed specialists match this city yet. Create a request and operations can assign manually.</div>}
+        {recommendedPartner && (
+          <article className="mvp-team-card" key={recommendedPartner.id}>
             {(() => {
-              const availability = getAvailability(member, projects, booking.desiredStartDate);
+              const availability = getAvailability(recommendedPartner, projects, booking.desiredStartDate);
               return <span className={`mvp-availability ${availability.className}`}>{availability.label}</span>;
             })()}
-            <div className="mvp-avatar">{getInitials(member.name)}</div>
-            <h3>{member.name}</h3>
-            <p>{member.type}</p>
-            <span>{member.services.slice(0, 2).join(', ') || member.city}</span>
-            <small>{member.experienceYears}+ yrs - {member.clientsServed} clients - {formatCurrency(estimateProfessionalCost(member, booking.areaSqft))}</small>
+            <div className="mvp-avatar">{getInitials(recommendedPartner.name)}</div>
+            <h3>{recommendedPartner.name}</h3>
+            <p>{recommendedPartner.type}</p>
+            <span>{recommendedPartner.services.slice(0, 2).join(', ') || recommendedPartner.city}</span>
+            <small>{recommendedPartner.experienceYears}+ yrs - {recommendedPartner.clientsServed} clients - {formatCurrency(estimateProfessionalCost(recommendedPartner, booking.areaSqft))}</small>
+            <button className="mvp-primary" type="button" onClick={() => onBook(recommendedPartner)}>Book this partner</button>
           </article>
-        ))}
+        )}
       </div>
     </section>
   );
@@ -437,14 +456,16 @@ const ProfessionalDirectory = ({
 }) => {
   const [type, setType] = useState<'All' | ProfessionalType>('All');
   const [service, setService] = useState('All services');
+  const [city, setCity] = useState('All cities');
   const [selectedProfessional, setSelectedProfessional] = useState<Professional | null>(null);
 
   const projects = data?.projects || [];
   const professionals = useMemo(() => data?.professionals || [], [data?.professionals]);
   const services = useMemo(() => ['All services', ...Array.from(new Set(professionals.flatMap(item => item.services)))], [professionals]);
+  const cities = useMemo(() => ['All cities', ...Array.from(new Set([...supportedCities, ...professionals.map(item => item.city).filter(Boolean)]))], [professionals]);
   const filtered = professionals.filter(pro => {
     if (pro.status !== 'listed') return false;
-    if (pro.city !== booking.city) return false;
+    if (city !== 'All cities' && pro.city !== city) return false;
     if (type !== 'All' && pro.type !== type) return false;
     if (service !== 'All services' && !pro.services.includes(service)) return false;
     return true;
@@ -463,72 +484,97 @@ const ProfessionalDirectory = ({
     <section className="mvp-section">
       <div className="mvp-section-head">
         <div>
-          <h2>Verified partners</h2>
+          <h2>Partners</h2>
           <p>Browse live Supabase listings by city, trade, price, verification, and active project load.</p>
           <small className="mvp-filter-note">Approved contractors stay visible even when they are above the current budget; cards show the reason instead of silently hiding them.</small>
         </div>
-        <div className="mvp-filter-row">
-          <select value={type} onChange={event => setType(event.target.value as 'All' | ProfessionalType)}>
-            <option>All</option>
-            <option>Interior Designer</option>
-            <option>Contractor</option>
-          </select>
-          <select value={service} onChange={event => setService(event.target.value)}>
-            {services.map(item => <option key={item}>{item}</option>)}
-          </select>
-        </div>
       </div>
 
-      <div className="mvp-directory">
-        {filtered.map(pro => (
-          <article className="mvp-pro-card" key={pro.id} onClick={() => setSelectedProfessional(pro)}>
-            {pro.grihammCertified && <span className="mvp-certified"><Star size={13} fill="currentColor" /> Certified</span>}
-            <div className="mvp-pro-head">
-              <div className="mvp-avatar">{getInitials(pro.name)}</div>
-              <div>
-                <h3>{pro.name}</h3>
-                <p><MapPin size={14} /> {pro.city} - {pro.type}</p>
-              </div>
-            </div>
-            {(() => {
-              const availability = getAvailability(pro, projects, booking.desiredStartDate);
-              const budgetFit = getBudgetFit(pro, booking);
-              return (
-                <div className="mvp-status-stack">
-                  <div className={`mvp-availability-card ${availability.className}`}>
-                    <strong>{availability.label}</strong>
-                    <span>{availability.detail}</span>
-                  </div>
-                  <div className={`mvp-budget-card ${budgetFit.className}`}>
-                    <strong>{budgetFit.label}</strong>
-                    <span>{budgetFit.detail}</span>
-                  </div>
+      <div className="mvp-directory-layout">
+        <aside className="mvp-directory-filter-panel" aria-label="Contractor filters">
+          <div>
+            <span>Filter partners</span>
+            <h3>Match by trade and availability.</h3>
+            <p>{filtered.length} partner{filtered.length === 1 ? '' : 's'} available across {city === 'All cities' ? 'all pilot cities' : city}.</p>
+          </div>
+          <label className="mvp-filter-field">
+            <span>City</span>
+            <select value={city} onChange={event => setCity(event.target.value)}>
+              {cities.map(item => <option key={item}>{item}</option>)}
+            </select>
+          </label>
+          <label className="mvp-filter-field">
+            <span>Partner type</span>
+            <select value={type} onChange={event => setType(event.target.value as 'All' | ProfessionalType)}>
+              <option>All</option>
+              <option>Interior Designer</option>
+              <option>Contractor</option>
+            </select>
+          </label>
+          <label className="mvp-filter-field">
+            <span>Service</span>
+            <select value={service} onChange={event => setService(event.target.value)}>
+              {services.map(item => <option key={item}>{item}</option>)}
+            </select>
+          </label>
+          <div className="mvp-filter-summary">
+            <strong>{booking.desiredStartDate ? formatScheduleDate(booking.desiredStartDate) : 'Start date not selected'}</strong>
+            <span>Calendar load is checked against active projects before shortlisting.</span>
+          </div>
+        </aside>
+
+        <div className="mvp-directory">
+          {filtered.length === 0 && <div className="mvp-empty">No listed partners match these filters yet. Adjust the type or service filter, or create a request for operations to assign manually.</div>}
+          {filtered.map(pro => (
+            <article className="mvp-pro-card" key={pro.id} onClick={() => setSelectedProfessional(pro)}>
+              {pro.grihammCertified && <span className="mvp-certified"><Star size={13} fill="currentColor" /> Certified</span>}
+              <div className="mvp-pro-head">
+                <div className="mvp-avatar">{getInitials(pro.name)}</div>
+                <div>
+                  <h3>{pro.name}</h3>
+                  <p><MapPin size={14} /> {pro.city} - {pro.type}</p>
                 </div>
-              );
-            })()}
-            <p>{pro.bio}</p>
-            <div className="mvp-strength-list">
-              {getPartnerStrengths(pro).map(item => <span key={item}>{item}</span>)}
-            </div>
-            <div className="mvp-chip-row">
-              <span><Star size={14} fill="currentColor" /> {pro.rating.toFixed(1)} ({pro.reviewCount})</span>
-              <span><BadgeIndianRupee size={14} /> {pro.startingPrice ? `${formatCurrency(pro.startingPrice)} ${pro.priceUnit}` : pro.priceUnit}</span>
-              <span><ClipboardCheck size={14} /> {pro.clientsServed} clients</span>
-            </div>
-            {pro.portfolioImages.length > 0 && (
-              <div className="mvp-gallery">
-                {pro.portfolioImages.slice(0, 3).map(image => <PortfolioImage key={image} src={image} alt={`${pro.name} work sample`} />)}
               </div>
-            )}
-            {pro.portfolioImages.length === 0 && (
-              <div className="mvp-gallery-empty">Past-work images pending verification</div>
-            )}
-            <div className="mvp-pro-actions">
-              <button className="mvp-secondary" type="button" onClick={event => { event.stopPropagation(); setSelectedProfessional(pro); }}>View details</button>
-              <button className="mvp-primary" type="button" onClick={event => { event.stopPropagation(); onBook(pro); }}>Book</button>
-            </div>
-          </article>
-        ))}
+              {(() => {
+                const availability = getAvailability(pro, projects, booking.desiredStartDate);
+                const budgetFit = getBudgetFit(pro, booking);
+                return (
+                  <div className="mvp-status-stack">
+                    <div className={`mvp-availability-card ${availability.className}`}>
+                      <strong>{availability.label}</strong>
+                      <span>{availability.detail}</span>
+                    </div>
+                    <div className={`mvp-budget-card ${budgetFit.className}`}>
+                      <strong>{budgetFit.label}</strong>
+                      <span>{budgetFit.detail}</span>
+                    </div>
+                  </div>
+                );
+              })()}
+              <p>{pro.bio}</p>
+              <div className="mvp-strength-list">
+                {getPartnerStrengths(pro).map(item => <span key={item}>{item}</span>)}
+              </div>
+              <div className="mvp-chip-row">
+                <span><Star size={14} fill="currentColor" /> {pro.rating.toFixed(1)} ({pro.reviewCount})</span>
+                <span><BadgeIndianRupee size={14} /> {pro.startingPrice ? `${formatCurrency(pro.startingPrice)} ${pro.priceUnit}` : pro.priceUnit}</span>
+                <span><ClipboardCheck size={14} /> {pro.clientsServed} clients</span>
+              </div>
+              {pro.portfolioImages.length > 0 && (
+                <div className="mvp-gallery">
+                  {pro.portfolioImages.slice(0, 3).map(image => <PortfolioImage key={image} src={image} alt={`${pro.name} work sample`} />)}
+                </div>
+              )}
+              {pro.portfolioImages.length === 0 && (
+                <div className="mvp-gallery-empty">Past-work images pending verification</div>
+              )}
+              <div className="mvp-pro-actions">
+                <button className="mvp-secondary" type="button" onClick={event => { event.stopPropagation(); setSelectedProfessional(pro); }}>View details</button>
+                <button className="mvp-primary" type="button" onClick={event => { event.stopPropagation(); onBook(pro); }}>Book</button>
+              </div>
+            </article>
+          ))}
+        </div>
       </div>
 
       {selectedProfessional && (
@@ -583,7 +629,7 @@ const MvpPrototype = () => {
   const [briefReady, setBriefReady] = useState(false);
 
   const selectedPropertyLabel = booking.projectType.trim() || 'Property project';
-  const selectedSubtype = booking.propertySubtype === 'Custom'
+  const selectedSubtype = booking.propertySubtype.toLowerCase().startsWith('custom')
     ? booking.customSpace.trim() || 'Custom requirement'
     : booking.propertySubtype.trim() || 'Custom requirement';
 
@@ -631,7 +677,6 @@ const MvpPrototype = () => {
       const scopedBrief = [
         ...scope,
         professional ? `Requested professional: ${professional.name}` : '',
-        booking.scopeText.trim(),
       ].filter(Boolean);
       const nextData = await api.createProject({
         customerUid: currentUser.uid,
@@ -672,7 +717,7 @@ const MvpPrototype = () => {
 
         {activeTab === 'book' && (
           <>
-            <BookingBrief booking={booking} updateBooking={updateBooking} onSubmit={reviewBrief} files={briefFiles} onFiles={setBriefFiles} loading={saving} />
+            <BookingBrief booking={booking} updateBooking={updateBooking} onSubmit={reviewBrief} files={briefFiles} onFiles={setBriefFiles} loading={saving} professionals={data?.professionals || []} />
             {briefReady && <RecommendedTeam professionals={data?.professionals || []} projects={data?.projects || []} booking={booking} onBook={professional => void createProject(professional)} />}
           </>
         )}
