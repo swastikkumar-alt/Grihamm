@@ -31,6 +31,7 @@ export interface UserProfile {
   bio?: string;
   education?: string;
   certifications?: string;
+  preferredLanguage?: string;
 }
 
 interface AuthContextType {
@@ -70,6 +71,7 @@ type UserProfileRow = {
   bio: string | null;
   education: string | null;
   certifications: string | null;
+  preferred_language?: string | null;
 };
 
 const isSuperAdminEmail = (email?: string | null) => Boolean(email && configuredAdminEmails.includes(email.toLowerCase()));
@@ -87,7 +89,7 @@ const normalizeProfile = (profile: UserProfile, user: AuthUser): UserProfile => 
   ...profile,
   email: user.email,
   displayName: user.displayName,
-  photoURL: user.photoURL,
+  photoURL: profile.photoURL || user.photoURL,
   role: resolveAllowedRole(profile.role, user.email),
 });
 
@@ -97,7 +99,6 @@ const publicProfilePatch = (data: Partial<UserProfile>): Partial<UserProfile> =>
   delete safeData.uid;
   delete safeData.email;
   delete safeData.displayName;
-  delete safeData.photoURL;
   return safeData;
 };
 
@@ -111,27 +112,39 @@ const createInitialProfile = (user: AuthUser): UserProfile => ({
   profileCompleted: false,
 });
 
-const profileToRow = (profile: UserProfile): UserProfileRow => ({
-  uid: profile.uid,
-  display_name: profile.displayName,
-  email: profile.email,
-  photo_url: profile.photoURL,
-  role: profile.role,
-  phone_number: profile.phoneNumber || null,
-  active_project: profile.activeProject || null,
-  company_name: profile.companyName || null,
-  occupation: profile.occupation || null,
-  academy_enrolled: profile.academyEnrolled ?? false,
-  profile_completed: profile.profileCompleted ?? false,
-  is_designer: profile.isDesigner ?? false,
-  specialty: profile.specialty || null,
-  experience: profile.experience || null,
-  consultation_fee: profile.consultationFee || null,
-  project_fee: profile.projectFee || null,
-  bio: profile.bio || null,
-  education: profile.education || null,
-  certifications: profile.certifications || null,
-});
+const profileToRow = (profile: UserProfile): UserProfileRow => {
+  const row: UserProfileRow = {
+    uid: profile.uid,
+    display_name: profile.displayName,
+    email: profile.email,
+    photo_url: profile.photoURL,
+    role: profile.role,
+    phone_number: profile.phoneNumber || null,
+    active_project: profile.activeProject || null,
+    company_name: profile.companyName || null,
+    occupation: profile.occupation || null,
+    academy_enrolled: profile.academyEnrolled ?? false,
+    profile_completed: profile.profileCompleted ?? false,
+    is_designer: profile.isDesigner ?? false,
+    specialty: profile.specialty || null,
+    experience: profile.experience || null,
+    consultation_fee: profile.consultationFee || null,
+    project_fee: profile.projectFee || null,
+    bio: profile.bio || null,
+    education: profile.education || null,
+    certifications: profile.certifications || null,
+  };
+  if (profile.preferredLanguage && profile.preferredLanguage !== 'en') {
+    row.preferred_language = profile.preferredLanguage;
+  }
+  return row;
+};
+
+const profileToLegacyRow = (profile: UserProfile) => {
+  const legacyRow = { ...profileToRow(profile) };
+  delete legacyRow.preferred_language;
+  return legacyRow;
+};
 
 const rowToProfile = (row: UserProfileRow): UserProfile => ({
   uid: row.uid,
@@ -153,6 +166,7 @@ const rowToProfile = (row: UserProfileRow): UserProfile => ({
   bio: row.bio || undefined,
   education: row.education || undefined,
   certifications: row.certifications || undefined,
+  preferredLanguage: row.preferred_language || 'en',
 });
 
 const toAuthUser = (user: SupabaseUser): AuthUser => ({
@@ -181,6 +195,14 @@ const writeStoredProfile = async (profile: UserProfile) => {
   const { error } = await supabase
     .from('user_profiles')
     .upsert(profileToRow(profile), { onConflict: 'uid' });
+
+  if (error && /preferred_language|schema cache|could not find.*column/i.test(error.message)) {
+    const retry = await supabase
+      .from('user_profiles')
+      .upsert(profileToLegacyRow(profile), { onConflict: 'uid' });
+    if (retry.error) throw new Error(retry.error.message);
+    return;
+  }
 
   if (error) throw new Error(error.message);
 };
@@ -247,7 +269,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       uid: currentUser.uid,
       displayName: currentUser.displayName,
       email: currentUser.email,
-      photoURL: currentUser.photoURL,
+      photoURL: userProfile?.photoURL || currentUser.photoURL,
       academyEnrolled: false,
       profileCompleted: false,
       ...userProfile,
@@ -258,6 +280,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     await writeStoredProfile(nextProfile);
     setUserProfile(nextProfile);
+    setCurrentUser(previousUser => previousUser
+      ? { ...previousUser, photoURL: nextProfile.photoURL }
+      : previousUser);
   };
 
   const refreshProfile = async () => {
@@ -280,10 +305,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       try {
         const profile = await fetchOrCreateProfile(nextUser);
-        if (isActive) setUserProfile(profile);
+        if (isActive) {
+          setUserProfile(profile);
+          setCurrentUser(previousUser => previousUser && previousUser.uid === nextUser.uid
+            ? { ...previousUser, photoURL: profile.photoURL || nextUser.photoURL }
+            : previousUser);
+        }
       } catch (error) {
         console.error('Profile load failed:', error);
-        if (isActive) setUserProfile(normalizeProfile(createInitialProfile(nextUser), nextUser));
+        if (isActive) {
+          const fallbackProfile = normalizeProfile(createInitialProfile(nextUser), nextUser);
+          setUserProfile(fallbackProfile);
+          setCurrentUser(previousUser => previousUser && previousUser.uid === nextUser.uid
+            ? { ...previousUser, photoURL: fallbackProfile.photoURL }
+            : previousUser);
+        }
       } finally {
         if (isActive) setLoading(false);
       }

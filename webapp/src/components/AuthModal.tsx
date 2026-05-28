@@ -1,6 +1,7 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../contexts/AuthContext';
 
 interface AuthModalProps {
@@ -19,6 +20,7 @@ const GoogleIcon = () => (
 
 const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
   const { login } = useAuth();
+  const { t } = useTranslation();
 
   const handleGoogleLogin = async () => {
     await login();
@@ -117,14 +119,14 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
                 marginBottom: '0.5rem',
                 color: 'var(--text)',
               }}>
-                Welcome to Grihamm
+                {t('auth.welcome')}
               </h2>
               <p style={{
                 color: 'var(--text-muted)',
                 fontSize: '0.9rem',
                 lineHeight: 1.5,
               }}>
-                Sign in to book services, track your project, and connect with certified professionals.
+                {t('auth.text')}
               </p>
             </div>
 
@@ -137,7 +139,7 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
             }}>
               <div style={{ flex: 1, height: '1px', background: 'var(--glass-border)' }} />
               <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '1.5px', fontWeight: 600 }}>
-                Continue with
+                {t('auth.continueWith')}
               </span>
               <div style={{ flex: 1, height: '1px', background: 'var(--glass-border)' }} />
             </div>
@@ -174,7 +176,7 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
               }}
             >
               <GoogleIcon />
-              Sign in with Google
+              {t('auth.google')}
             </button>
 
             {/* Terms */}
@@ -184,10 +186,10 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
               marginTop: '1.75rem',
               lineHeight: 1.6,
             }}>
-              By signing in, you agree to Grihamm's{' '}
-              <a href="/terms" style={{ color: 'var(--primary)', textDecoration: 'none' }}>Terms of Service</a>
-              {' '}and{' '}
-              <a href="/privacy" style={{ color: 'var(--primary)', textDecoration: 'none' }}>Privacy Policy</a>.
+              {t('auth.termsText')}{' '}
+              <a href="/terms" style={{ color: 'var(--primary)', textDecoration: 'none' }}>{t('nav.terms')}</a>
+              {' '}{t('common.and')}{' '}
+              <a href="/privacy" style={{ color: 'var(--primary)', textDecoration: 'none' }}>{t('nav.privacy')}</a>.
             </p>
           </motion.div>
         </div>

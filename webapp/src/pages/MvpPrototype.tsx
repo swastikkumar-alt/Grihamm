@@ -1,4 +1,6 @@
 import { useMemo, useState, type ComponentType } from 'react';
+import { useTranslation } from 'react-i18next';
+import type { TFunction } from 'i18next';
 import {
   ArrowRight,
   BadgeIndianRupee,
@@ -13,8 +15,9 @@ import {
 } from 'lucide-react';
 import AuthModal from '../components/AuthModal';
 import { useAuth } from '../contexts/AuthContext';
-import { api, formatCurrency, type BootstrapData, type Professional, type ProfessionalType, type Project } from '../lib/api';
-import { areaTypes, defaultBooking, projectTypes, supportedCities } from '../lib/platformConfig';
+import { api, formatCurrency, type BootstrapData, type Professional, type Project } from '../lib/api';
+import { labelKey } from '../i18n';
+import { areaTypes, defaultBooking, partnerSpecializations, projectTypes, supportedCities, visitPreferences } from '../lib/platformConfig';
 import { useGrihammData } from '../lib/useGrihammData';
 import './MvpPrototype.css';
 
@@ -45,6 +48,13 @@ const formatScheduleDate = (value: string) => {
     : new Intl.DateTimeFormat('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }).format(date);
 };
 
+const tx = (t: TFunction, value: string) => t(`taxonomy.${labelKey(value)}`, value);
+const txList = (t: TFunction, values: string[]) => values.map(value => tx(t, value)).join(', ');
+const hasServiceMatch = (professional: Professional, requestedServices: string[]) =>
+  requestedServices.length === 0 || requestedServices.some(service => professional.services.includes(service));
+const matchedServices = (professional: Professional, requestedServices: string[]) =>
+  requestedServices.filter(service => professional.services.includes(service));
+
 const getProfessionalLoad = (professional: Professional, projects: Project[]) => {
   const activeProjects = projects.filter(project => (
     project.progress < 100
@@ -54,33 +64,33 @@ const getProfessionalLoad = (professional: Professional, projects: Project[]) =>
   return activeProjects.length;
 };
 
-const getAvailability = (professional: Professional, projects: Project[], selectedStartDate: string) => {
+const getAvailability = (professional: Professional, projects: Project[], selectedStartDate: string, t?: TFunction) => {
   const activeCount = getProfessionalLoad(professional, projects);
   const dateLabel = selectedStartDate ? formatScheduleDate(selectedStartDate) : 'your selected start date';
   if (activeCount > 0) {
     return {
       className: 'busy',
-      label: 'On project now',
-      detail: `${activeCount} active Grihamm project${activeCount > 1 ? 's' : ''}. Slot check needed for ${dateLabel}.`,
+      label: t ? t('contractors.busyNow') : 'On project now',
+      detail: t ? t('contractors.slotNeeded', { count: activeCount, date: dateLabel }) : `${activeCount} active Grihamm project${activeCount > 1 ? 's' : ''}. Slot check needed for ${dateLabel}.`,
     };
   }
   return {
     className: 'open',
-    label: 'Open for new project',
-    detail: selectedStartDate ? `Can be shortlisted for ${dateLabel}.` : 'Pick a start date to run a slot check.',
+    label: t ? t('contractors.openNow') : 'Open for new project',
+    detail: selectedStartDate ? (t ? t('contractors.canShortlist', { date: dateLabel }) : `Can be shortlisted for ${dateLabel}.`) : (t ? t('contractors.pickStart') : 'Pick a start date to run a slot check.'),
   };
 };
 
-const getBudgetFit = (professional: Professional, booking: typeof defaultBooking) => {
+const getBudgetFit = (professional: Professional, booking: typeof defaultBooking, t?: TFunction) => {
   if (!professional.startingPrice) {
-    return { className: 'review', label: 'Quote after site review', detail: 'Visible in list; operations will confirm pricing.' };
+    return { className: 'review', label: t ? t('contractors.quoteReview') : 'Quote after site review', detail: 'Visible in list; operations will confirm pricing.' };
   }
   const estimate = estimateProfessionalCost(professional, booking.areaSqft);
   const maxBudget = Math.max(booking.budgetMax, 1);
   if (estimate <= maxBudget) {
-    return { className: 'fit', label: 'Budget fit', detail: `${formatCurrency(estimate)} estimate` };
+    return { className: 'fit', label: t ? t('contractors.budgetFit') : 'Budget fit', detail: `${formatCurrency(estimate)} estimate` };
   }
-  return { className: 'over', label: 'Above selected budget', detail: `${formatCurrency(estimate)} estimate` };
+  return { className: 'over', label: t ? t('contractors.aboveBudget') : 'Above selected budget', detail: `${formatCurrency(estimate)} estimate` };
 };
 
 const PortfolioImage = ({ src, alt }: { src: string; alt: string }) => {
@@ -112,6 +122,7 @@ const buildProjectScope = (
   `${propertyLabel}: ${subtype}`,
   `${areaType}: ${areaSqft} sqft`,
   `Budget range: ${formatCurrency(budgetMin)} - ${formatCurrency(budgetMax)}`,
+  booking.requestedServices.length ? `Requested work: ${booking.requestedServices.join(', ')}` : '',
   booking.desiredStartDate ? `Desired start date: ${formatScheduleDate(booking.desiredStartDate)}` : '',
   booking.targetHandoverDate ? `Target handover date: ${formatScheduleDate(booking.targetHandoverDate)}` : '',
   booking.siteAddress ? `Site address: ${booking.siteAddress}` : '',
@@ -119,7 +130,9 @@ const buildProjectScope = (
   booking.visitPreference ? `Visit preference: ${booking.visitPreference}` : '',
 ].filter(Boolean);
 
-const AppTabs = ({ activeTab, onChange }: { activeTab: AppTab; onChange: (tab: AppTab) => void }) => (
+const AppTabs = ({ activeTab, onChange }: { activeTab: AppTab; onChange: (tab: AppTab) => void }) => {
+  const { t } = useTranslation();
+  return (
   <nav className="mvp-tabs" aria-label="Grihamm product sections">
     <div className="mvp-tabs-inner">
       {tabs.map(tab => {
@@ -133,13 +146,14 @@ const AppTabs = ({ activeTab, onChange }: { activeTab: AppTab; onChange: (tab: A
             onClick={() => onChange(tab.id)}
           >
             <Icon size={16} />
-            {tab.label}
+            {t(`booking.tabs.${tab.id}`)}
           </button>
         );
       })}
     </div>
   </nav>
-);
+  );
+};
 
 const Notice = ({ error, message }: { error: string; message: string }) => (
   <>
@@ -165,6 +179,7 @@ const BookingBrief = ({
   loading: boolean;
   professionals: Professional[];
 }) => {
+  const { t } = useTranslation();
   const handleFileInput = (list: FileList | null) => {
     if (!list) return;
     const nextFiles = Array.from(list)
@@ -178,22 +193,29 @@ const BookingBrief = ({
   const listedProfessionals = professionals.filter(item => item.status === 'listed');
   const tradeCategoryCount = new Set(listedProfessionals.flatMap(item => item.services)).size;
   const activeCityLabel = booking.city || supportedCities.join(' / ');
+  const toggleRequestedService = (service: string) => {
+    const nextServices = booking.requestedServices.includes(service)
+      ? booking.requestedServices.filter(item => item !== service)
+      : [...booking.requestedServices, service];
+    updateBooking('requestedServices', nextServices);
+  };
 
   return (
     <section className="mvp-book-grid">
       <div className="mvp-book-main">
         <div className="mvp-book-copy">
-          <h1>Tell us about your home.</h1>
+          <h1 className="mvp-dream-title">
+            Let's <span>build</span> your <span>dream</span>
+          </h1>
           <p>
-            A senior project manager will review your brief within 24 hours. No design fees.
-            No call centre. Funds stay in your wallet until each milestone is photo-verified.
+            {t('booking.intro')}
           </p>
         </div>
 
         <div className="mvp-form-card">
           <div className="mvp-form-grid">
             <label className="mvp-field">
-              <span>Project type</span>
+              <span>{t('booking.projectType')}</span>
               <select
                 value={booking.projectType}
                 onChange={event => {
@@ -205,21 +227,21 @@ const BookingBrief = ({
                   updateBooking('homeType', `${nextType.label} - ${nextType.spaces[0]}`);
                 }}
               >
-                <option value="" disabled>Choose project type</option>
-                {projectTypes.map(item => <option key={item.label}>{item.label}</option>)}
+                <option value="" disabled>{t('booking.chooseProjectType')}</option>
+                {projectTypes.map(item => <option key={item.label} value={item.label}>{tx(t, item.label)}</option>)}
               </select>
             </label>
             <label className="mvp-field">
-              <span>Locality ({supportedCities.join(' / ')} pilot)</span>
+              <span>{t('booking.locality')} ({supportedCities.join(' / ')} pilot)</span>
               <select value={booking.city} onChange={event => updateBooking('city', event.target.value)}>
-                <option value="" disabled>Choose city</option>
+                <option value="" disabled>{t('booking.chooseCity')}</option>
                 {supportedCities.map(item => <option key={item}>{item}</option>)}
               </select>
             </label>
           </div>
 
           <div className="mvp-field">
-            <span>Home or space type</span>
+            <span>{t('booking.spaceType')}</span>
             {selectedProjectType ? (
               <div className="mvp-soft-options">
                 {selectedProjectType.spaces.map(option => (
@@ -235,84 +257,98 @@ const BookingBrief = ({
                       updateBooking('homeType', `${booking.projectType || 'Project'} - ${option}`);
                     }}
                   >
-                    {option}
+                    {tx(t, option)}
                   </button>
                 ))}
               </div>
             ) : (
-              <div className="mvp-choice-placeholder">Choose a project type to load relevant space options.</div>
+              <div className="mvp-choice-placeholder">{t('booking.chooseTypeHint')}</div>
             )}
           </div>
 
           {isCustomSpace && (
             <label className="mvp-field">
-              <span>Custom space details</span>
+              <span>{t('booking.customSpace')}</span>
               <input
                 value={booking.customSpace}
                 onChange={event => {
                   updateBooking('customSpace', event.target.value);
                   updateBooking('homeType', `${booking.projectType || 'Project'} - ${event.target.value || 'Custom'}`);
                 }}
-                placeholder="e.g. 5,200 sq ft restaurant, duplex renovation, 12-seat clinic"
+                placeholder={t('booking.customSpacePlaceholder')}
               />
             </label>
           )}
 
           <div className="mvp-form-grid">
             <label className="mvp-field">
-              <span>Area type</span>
+              <span>{t('booking.areaType')}</span>
               <select value={booking.areaType} onChange={event => updateBooking('areaType', event.target.value)}>
-                {areaTypes.map(item => <option key={item}>{item}</option>)}
+                {areaTypes.map(item => <option key={item} value={item}>{tx(t, item)}</option>)}
               </select>
             </label>
             <label className="mvp-field">
-              <span>Measured area (sq ft)</span>
+              <span>{t('booking.measuredArea')}</span>
               <input type="number" min="0" value={booking.areaSqft || ''} onChange={event => updateBooking('areaSqft', Number(event.target.value))} placeholder="e.g. 1180" />
             </label>
           </div>
 
           <div className="mvp-budget-line">
-            <span>Approx. budget</span>
+            <span>{t('booking.approxBudget')}</span>
             <strong>{formatCurrency(booking.budgetMin)} - {formatCurrency(booking.budgetMax)}</strong>
-            <p>Released milestone-by-milestone. You always control the wallet.</p>
+            <p>{t('booking.budgetHelp')}</p>
           </div>
 
           <div className="mvp-form-grid">
             <label className="mvp-field">
-              <span>Minimum budget</span>
+              <span>{t('booking.minBudget')}</span>
               <input type="number" min="0" value={booking.budgetMin} onChange={event => updateBooking('budgetMin', Number(event.target.value))} />
             </label>
             <label className="mvp-field">
-              <span>Maximum budget</span>
+              <span>{t('booking.maxBudget')}</span>
               <input type="number" min="0" value={booking.budgetMax} onChange={event => updateBooking('budgetMax', Number(event.target.value))} />
             </label>
           </div>
 
+          <div className="mvp-field">
+            <span>{t('booking.workNeeded')}</span>
+            <p className="mvp-field-help">{t('booking.workNeededHelp')}</p>
+            <div className="mvp-soft-options mvp-work-options">
+              {partnerSpecializations.map(option => (
+                <button
+                  key={option}
+                  type="button"
+                  className={booking.requestedServices.includes(option) ? 'active' : ''}
+                  onClick={() => toggleRequestedService(option)}
+                >
+                  {tx(t, option)}
+                </button>
+              ))}
+            </div>
+          </div>
+
           <div className="mvp-form-grid">
             <label className="mvp-field">
-              <span>Site address</span>
-              <input value={booking.siteAddress} onChange={event => updateBooking('siteAddress', event.target.value)} placeholder="Apartment, area, landmark" />
+              <span>{t('booking.siteAddressOptional')}</span>
+              <input value={booking.siteAddress} onChange={event => updateBooking('siteAddress', event.target.value)} placeholder={t('booking.siteAddressPlaceholder')} />
             </label>
             <label className="mvp-field">
-              <span>Visit preference</span>
+              <span>{t('booking.visitPreference')}</span>
               <select value={booking.visitPreference} onChange={event => updateBooking('visitPreference', event.target.value)}>
-                <option>Site visit this week</option>
-                <option>Weekend visit preferred</option>
-                <option>Online consultation first</option>
-                <option>Call me before scheduling</option>
+                {visitPreferences.map(option => <option key={option}>{option}</option>)}
               </select>
             </label>
           </div>
 
           <div className="mvp-timeline-panel">
             <div className="mvp-timeline-head">
-              <span>Calendar-aware matching</span>
-              <strong>Choose your project window.</strong>
-              <p>We check contractor load before shortlisting, so active projects do not collide with your start date.</p>
+              <span>{t('booking.calendarEyebrow')}</span>
+              <strong>{t('booking.calendarTitle')}</strong>
+              <p>{t('booking.calendarText')}</p>
             </div>
             <div className="mvp-form-grid mvp-date-grid">
               <label className="mvp-field">
-                <span>When do you want to start?</span>
+                <span>{t('booking.startDate')}</span>
                 <input
                   type="date"
                   min={todayInputValue()}
@@ -321,7 +357,7 @@ const BookingBrief = ({
                 />
               </label>
               <label className="mvp-field">
-                <span>Target handover date</span>
+                <span>{t('booking.handoverDate')}</span>
                 <input
                   type="date"
                   min={booking.desiredStartDate || todayInputValue()}
@@ -331,19 +367,19 @@ const BookingBrief = ({
               </label>
             </div>
             <label className="mvp-field">
-              <span>Timeline notes</span>
-              <input value={booking.timeline} onChange={event => updateBooking('timeline', event.target.value)} placeholder="e.g. weekdays only, society work hours, phased handover" />
+              <span>{t('booking.timelineNotes')}</span>
+              <input value={booking.timeline} onChange={event => updateBooking('timeline', event.target.value)} placeholder={t('booking.timelinePlaceholder')} />
             </label>
             <p className="mvp-date-note">
-              We use these calendar dates to avoid shortlisting contractors who already have active Grihamm projects in the same window.
+              {t('booking.dateNote')}
             </p>
           </div>
 
           <label className="mvp-file-drop">
             <input type="file" accept="image/*,application/pdf" multiple onChange={event => handleFileInput(event.target.files)} />
             <FileUp size={20} />
-            <strong>Tell us more with plans or photos (optional)</strong>
-            <span>Attach floor plans, current photos, references, or BOQs. Images and PDFs can be up to 8 MB each.</span>
+            <strong>{t('booking.attachTitle')}</strong>
+            <span>{t('booking.attachText')}</span>
           </label>
 
           {files.length > 0 && (
@@ -355,15 +391,15 @@ const BookingBrief = ({
           )}
 
           <button className="mvp-primary" type="button" disabled={loading} onClick={onSubmit}>
-            {loading ? 'Checking brief...' : <>See partners near you <ArrowRight size={15} /></>}
+            {loading ? t('booking.checking') : <>{t('booking.seePartners')} <ArrowRight size={15} /></>}
           </button>
         </div>
       </div>
 
       <aside className="mvp-book-side" aria-label="Grihamm booking standards">
         <section className="mvp-why-card">
-          <span>Why Grihamm</span>
-          <h2>Your money stays in your wallet.</h2>
+          <span>{t('booking.whyEyebrow')}</span>
+          <h2>{t('booking.whyTitle')}</h2>
           <ul>
             {grihammTrustPoints.map(item => (
               <li key={item}>
@@ -376,29 +412,29 @@ const BookingBrief = ({
 
         <section className="mvp-snapshot-card">
           <div className="mvp-snapshot-head">
-            <span>Pilot snapshot</span>
-            <small>Live in {activeCityLabel}</small>
+            <span>{t('booking.pilotSnapshot')}</span>
+            <small>{t('booking.liveIn', { city: activeCityLabel })}</small>
           </div>
           <div className="mvp-snapshot-metrics">
             <div>
               <strong>{listedProfessionals.length || '-'}</strong>
-              <span>partners</span>
+              <span>{t('common.partners')}</span>
             </div>
             <div>
               <strong>{tradeCategoryCount || '-'}</strong>
-              <span>trade categories</span>
+              <span>{t('booking.tradeCategories')}</span>
             </div>
             <div>
               <strong>24H</strong>
-              <span>PM response</span>
+              <span>{t('booking.pmResponse')}</span>
             </div>
           </div>
         </section>
 
         <section className="mvp-calendar-card">
-          <span>Slot check</span>
+          <span>{t('booking.slotCheck')}</span>
           <p>
-            Pick start and handover dates in the form. Contractors already carrying active Grihamm work are shown with their current load before booking.
+            {t('booking.slotCheckText')}
           </p>
         </section>
       </aside>
@@ -406,38 +442,42 @@ const BookingBrief = ({
   );
 };
 
-const RecommendedTeam = ({ professionals, projects, booking, onBook }: { professionals: Professional[]; projects: Project[]; booking: typeof defaultBooking; onBook: (professional?: Professional) => void }) => {
+const RecommendedTeam = ({ professionals, projects, booking, onBook }: { professionals: Professional[]; projects: Project[]; booking: typeof defaultBooking; onBook: (professional: Professional) => void }) => {
+  const { t } = useTranslation();
   const listed = professionals.filter(item => (
     item.status === 'listed'
+    && item.type === 'Contractor'
     && item.city === booking.city
+    && hasServiceMatch(item, booking.requestedServices)
     && estimateProfessionalCost(item, booking.areaSqft) <= Math.max(booking.budgetMax, 1)
   ));
-  const recommendedPartner = listed.find(item => item.type === 'Contractor') || listed[0] || null;
+  const recommendedPartner = listed[0] || null;
 
   return (
     <section className="mvp-section">
       <div className="mvp-section-head">
         <div>
-          <h2>Recommended partner for this brief</h2>
-          <p>{booking.homeType} in {booking.city}. The first match is filtered from listed Supabase partners by city, budget, availability, and project load.</p>
+          <h2>{t('booking.recommendedTitle')}</h2>
+          <p>{t('booking.recommendedText', { homeType: booking.homeType, city: booking.city })}</p>
         </div>
-        <button className="mvp-secondary" type="button" onClick={() => onBook()}>Create request</button>
       </div>
 
       <div className="mvp-team-grid">
-        {!recommendedPartner && <div className="mvp-empty">No listed specialists match this city yet. Create a request and operations can assign manually.</div>}
+        {!recommendedPartner && <div className="mvp-empty">{t('booking.noMatch')}</div>}
         {recommendedPartner && (
           <article className="mvp-team-card" key={recommendedPartner.id}>
             {(() => {
-              const availability = getAvailability(recommendedPartner, projects, booking.desiredStartDate);
+              const availability = getAvailability(recommendedPartner, projects, booking.desiredStartDate, t);
               return <span className={`mvp-availability ${availability.className}`}>{availability.label}</span>;
             })()}
             <div className="mvp-avatar">{getInitials(recommendedPartner.name)}</div>
             <h3>{recommendedPartner.name}</h3>
             <p>{recommendedPartner.type}</p>
-            <span>{recommendedPartner.services.slice(0, 2).join(', ') || recommendedPartner.city}</span>
+            <span>{txList(t, matchedServices(recommendedPartner, booking.requestedServices).slice(0, 3)) || txList(t, recommendedPartner.services.slice(0, 2)) || recommendedPartner.city}</span>
             <small>{recommendedPartner.experienceYears}+ yrs - {recommendedPartner.clientsServed} clients - {formatCurrency(estimateProfessionalCost(recommendedPartner, booking.areaSqft))}</small>
-            <button className="mvp-primary" type="button" onClick={() => onBook(recommendedPartner)}>Book this partner</button>
+            {recommendedPartner.languages.length > 0 && <small>{t('contractors.languages')}: {recommendedPartner.languages.join(', ')}</small>}
+            {recommendedPartner.monthlyCapacity && <small>{t('contractors.capacity')}: {recommendedPartner.monthlyCapacity}</small>}
+            <button className="mvp-primary" type="button" onClick={() => onBook(recommendedPartner)}>{t('booking.bookThisPartner')}</button>
           </article>
         )}
       </div>
@@ -454,24 +494,27 @@ const ProfessionalDirectory = ({
   booking: typeof defaultBooking;
   onBook: (professional: Professional) => void;
 }) => {
-  const [type, setType] = useState<'All' | ProfessionalType>('All');
+  const { t } = useTranslation();
   const [service, setService] = useState('All services');
   const [city, setCity] = useState('All cities');
+  const [availabilityFilter, setAvailabilityFilter] = useState<'all' | 'open' | 'busy'>('all');
   const [selectedProfessional, setSelectedProfessional] = useState<Professional | null>(null);
 
   const projects = data?.projects || [];
-  const professionals = useMemo(() => data?.professionals || [], [data?.professionals]);
+  const professionals = useMemo(() => (data?.professionals || []).filter(item => item.type === 'Contractor'), [data?.professionals]);
   const services = useMemo(() => ['All services', ...Array.from(new Set(professionals.flatMap(item => item.services)))], [professionals]);
   const cities = useMemo(() => ['All cities', ...Array.from(new Set([...supportedCities, ...professionals.map(item => item.city).filter(Boolean)]))], [professionals]);
   const filtered = professionals.filter(pro => {
     if (pro.status !== 'listed') return false;
     if (city !== 'All cities' && pro.city !== city) return false;
-    if (type !== 'All' && pro.type !== type) return false;
     if (service !== 'All services' && !pro.services.includes(service)) return false;
+    const load = getProfessionalLoad(pro, projects);
+    if (availabilityFilter === 'open' && load > 0) return false;
+    if (availabilityFilter === 'busy' && load === 0) return false;
     return true;
   }).sort((a, b) => {
-    const aFit = getBudgetFit(a, booking).className === 'over' ? 1 : 0;
-    const bFit = getBudgetFit(b, booking).className === 'over' ? 1 : 0;
+    const aFit = getBudgetFit(a, booking, t).className === 'over' ? 1 : 0;
+    const bFit = getBudgetFit(b, booking, t).className === 'over' ? 1 : 0;
     return aFit - bFit || getProfessionalLoad(a, projects) - getProfessionalLoad(b, projects) || b.rating - a.rating || a.name.localeCompare(b.name);
   });
   const getPartnerStrengths = (pro: Professional) => [
@@ -484,60 +527,60 @@ const ProfessionalDirectory = ({
     <section className="mvp-section">
       <div className="mvp-section-head">
         <div>
-          <h2>Partners</h2>
-          <p>Browse live Supabase listings by city, trade, price, verification, and active project load.</p>
-          <small className="mvp-filter-note">Approved contractors stay visible even when they are above the current budget; cards show the reason instead of silently hiding them.</small>
+          <h2>{t('contractors.title')}</h2>
+          <p>{t('contractors.intro')}</p>
+          <small className="mvp-filter-note">{t('contractors.note')}</small>
         </div>
       </div>
 
       <div className="mvp-directory-layout">
         <aside className="mvp-directory-filter-panel" aria-label="Contractor filters">
           <div>
-            <span>Filter partners</span>
-            <h3>Match by trade and availability.</h3>
-            <p>{filtered.length} partner{filtered.length === 1 ? '' : 's'} available across {city === 'All cities' ? 'all pilot cities' : city}.</p>
+            <span>{t('contractors.filterEyebrow')}</span>
+            <h3>{t('contractors.filterTitle')}</h3>
+            <p>{t('contractors.filterCount', { count: filtered.length, city: city === 'All cities' ? t('contractors.allCities') : city })}</p>
           </div>
           <label className="mvp-filter-field">
-            <span>City</span>
+            <span>{t('common.city')}</span>
             <select value={city} onChange={event => setCity(event.target.value)}>
-              {cities.map(item => <option key={item}>{item}</option>)}
+              {cities.map(item => <option key={item} value={item}>{item === 'All cities' ? t('contractors.allCities') : item}</option>)}
             </select>
           </label>
           <label className="mvp-filter-field">
-            <span>Partner type</span>
-            <select value={type} onChange={event => setType(event.target.value as 'All' | ProfessionalType)}>
-              <option>All</option>
-              <option>Interior Designer</option>
-              <option>Contractor</option>
-            </select>
-          </label>
-          <label className="mvp-filter-field">
-            <span>Service</span>
+            <span>{t('common.service')}</span>
             <select value={service} onChange={event => setService(event.target.value)}>
-              {services.map(item => <option key={item}>{item}</option>)}
+              {services.map(item => <option key={item} value={item}>{item === 'All services' ? t('contractors.allServices') : tx(t, item)}</option>)}
+            </select>
+          </label>
+          <label className="mvp-filter-field">
+            <span>{t('contractors.availability')}</span>
+            <select value={availabilityFilter} onChange={event => setAvailabilityFilter(event.target.value as typeof availabilityFilter)}>
+              <option value="all">{t('contractors.allAvailability')}</option>
+              <option value="open">{t('contractors.availableOnly')}</option>
+              <option value="busy">{t('contractors.busyOnly')}</option>
             </select>
           </label>
           <div className="mvp-filter-summary">
-            <strong>{booking.desiredStartDate ? formatScheduleDate(booking.desiredStartDate) : 'Start date not selected'}</strong>
-            <span>Calendar load is checked against active projects before shortlisting.</span>
+            <strong>{booking.desiredStartDate ? formatScheduleDate(booking.desiredStartDate) : t('contractors.pickStart')}</strong>
+            <span>{t('booking.dateNote')}</span>
           </div>
         </aside>
 
         <div className="mvp-directory">
-          {filtered.length === 0 && <div className="mvp-empty">No listed partners match these filters yet. Adjust the type or service filter, or create a request for operations to assign manually.</div>}
+          {filtered.length === 0 && <div className="mvp-empty">{t('contractors.noFiltered')}</div>}
           {filtered.map(pro => (
             <article className="mvp-pro-card" key={pro.id} onClick={() => setSelectedProfessional(pro)}>
-              {pro.grihammCertified && <span className="mvp-certified"><Star size={13} fill="currentColor" /> Certified</span>}
+              {pro.grihammCertified && <span className="mvp-certified"><Star size={13} fill="currentColor" /> {t('contractors.certified')}</span>}
               <div className="mvp-pro-head">
                 <div className="mvp-avatar">{getInitials(pro.name)}</div>
                 <div>
                   <h3>{pro.name}</h3>
-                  <p><MapPin size={14} /> {pro.city} - {pro.type}</p>
+                  <p><MapPin size={14} /> {pro.city} - {pro.type === 'Contractor' ? t('common.contractor') : t('common.designer')}</p>
                 </div>
               </div>
               {(() => {
-                const availability = getAvailability(pro, projects, booking.desiredStartDate);
-                const budgetFit = getBudgetFit(pro, booking);
+                const availability = getAvailability(pro, projects, booking.desiredStartDate, t);
+                const budgetFit = getBudgetFit(pro, booking, t);
                 return (
                   <div className="mvp-status-stack">
                     <div className={`mvp-availability-card ${availability.className}`}>
@@ -554,6 +597,12 @@ const ProfessionalDirectory = ({
               <p>{pro.bio}</p>
               <div className="mvp-strength-list">
                 {getPartnerStrengths(pro).map(item => <span key={item}>{item}</span>)}
+                {matchedServices(pro, booking.requestedServices).length > 0 && <span>{t('booking.workNeeded')}: {txList(t, matchedServices(pro, booking.requestedServices))}</span>}
+                {pro.languages.length > 0 && <span>{t('contractors.languages')}: {pro.languages.join(', ')}</span>}
+                {pro.serviceAreas.length > 0 && <span>{t('contractors.serviceAreas')}: {pro.serviceAreas.join(', ')}</span>}
+                {pro.monthlyCapacity && <span>{t('contractors.capacity')}: {pro.monthlyCapacity}</span>}
+                {pro.teamSize > 0 && <span>{t('contractors.teamSize')}: {pro.teamSize}</span>}
+                {pro.warrantyPolicy && <span>{t('contractors.warranty')}: {pro.warrantyPolicy}</span>}
               </div>
               <div className="mvp-chip-row">
                 <span><Star size={14} fill="currentColor" /> {pro.rating.toFixed(1)} ({pro.reviewCount})</span>
@@ -566,11 +615,11 @@ const ProfessionalDirectory = ({
                 </div>
               )}
               {pro.portfolioImages.length === 0 && (
-                <div className="mvp-gallery-empty">Past-work images pending verification</div>
+                <div className="mvp-gallery-empty">{t('contractors.imagesPending')}</div>
               )}
               <div className="mvp-pro-actions">
-                <button className="mvp-secondary" type="button" onClick={event => { event.stopPropagation(); setSelectedProfessional(pro); }}>View details</button>
-                <button className="mvp-primary" type="button" onClick={event => { event.stopPropagation(); onBook(pro); }}>Book</button>
+                <button className="mvp-secondary" type="button" onClick={event => { event.stopPropagation(); setSelectedProfessional(pro); }}>{t('contractors.viewDetails')}</button>
+                <button className="mvp-primary" type="button" onClick={event => { event.stopPropagation(); onBook(pro); }}>{t('contractors.book')}</button>
               </div>
             </article>
           ))}
@@ -585,7 +634,7 @@ const ProfessionalDirectory = ({
               <div className="mvp-avatar large">{getInitials(selectedProfessional.name)}</div>
               <div>
                 <h2>{selectedProfessional.name}</h2>
-                <p>{selectedProfessional.type} in {selectedProfessional.city}</p>
+                <p>{selectedProfessional.type === 'Contractor' ? t('common.contractor') : t('common.designer')} in {selectedProfessional.city}</p>
               </div>
             </div>
             <p>{selectedProfessional.bio}</p>
@@ -597,19 +646,24 @@ const ProfessionalDirectory = ({
               </div>
             )}
             <div className="mvp-metric-grid">
-              <div><span>Starting price</span><strong>{selectedProfessional.startingPrice ? `${formatCurrency(selectedProfessional.startingPrice)} ${selectedProfessional.priceUnit}` : selectedProfessional.priceUnit}</strong></div>
-              <div><span>Estimate</span><strong>{selectedProfessional.startingPrice ? formatCurrency(estimateProfessionalCost(selectedProfessional, booking.areaSqft)) : 'Needs site review'}</strong></div>
-              <div><span>GSTIN</span><strong>{selectedProfessional.gstin || 'Pending'}</strong></div>
-              <div><span>Academy</span><strong>{selectedProfessional.grihammCertified ? selectedProfessional.academyCredential || 'Verified' : 'Not certified'}</strong></div>
+              <div><span>{t('contractors.startingPrice')}</span><strong>{selectedProfessional.startingPrice ? `${formatCurrency(selectedProfessional.startingPrice)} ${selectedProfessional.priceUnit}` : selectedProfessional.priceUnit}</strong></div>
+              <div><span>{t('contractors.estimate')}</span><strong>{selectedProfessional.startingPrice ? formatCurrency(estimateProfessionalCost(selectedProfessional, booking.areaSqft)) : 'Needs site review'}</strong></div>
+              <div><span>{t('contractors.gstin')}</span><strong>{selectedProfessional.gstin || t('common.pending')}</strong></div>
+              <div><span>{t('contractors.academy')}</span><strong>{selectedProfessional.grihammCertified ? selectedProfessional.academyCredential || 'Verified' : 'Not certified'}</strong></div>
+              <div><span>{t('contractors.languages')}</span><strong>{selectedProfessional.languages.join(', ') || t('common.notAdded')}</strong></div>
+              <div><span>{t('contractors.teamSize')}</span><strong>{selectedProfessional.teamSize || t('common.notAdded')}</strong></div>
             </div>
             <div className="mvp-partner-value">
-              <h3>What they bring to the table</h3>
+              <h3>{t('contractors.strengths')}</h3>
               {getPartnerStrengths(selectedProfessional).map(item => <span key={item}>{item}</span>)}
-              {selectedProfessional.serviceAreas.length > 0 && <span>Works across {selectedProfessional.serviceAreas.join(', ')}</span>}
-              <span>{getAvailability(selectedProfessional, projects, booking.desiredStartDate).detail}</span>
+              {selectedProfessional.serviceAreas.length > 0 && <span>{t('contractors.serviceAreas')}: {selectedProfessional.serviceAreas.join(', ')}</span>}
+              {selectedProfessional.monthlyCapacity && <span>{t('contractors.capacity')}: {selectedProfessional.monthlyCapacity}</span>}
+              {selectedProfessional.warrantyPolicy && <span>{t('contractors.warranty')}: {selectedProfessional.warrantyPolicy}</span>}
+              {selectedProfessional.materialBrands.length > 0 && <span>{t('contractors.materialBrands')}: {selectedProfessional.materialBrands.join(', ')}</span>}
+              <span>{getAvailability(selectedProfessional, projects, booking.desiredStartDate, t).detail}</span>
             </div>
-            <div className="mvp-chip-row">{selectedProfessional.services.map(item => <span key={item}>{item}</span>)}</div>
-            <button className="mvp-primary" type="button" onClick={() => onBook(selectedProfessional)}>Book this professional</button>
+            <div className="mvp-chip-row">{selectedProfessional.services.map(item => <span key={item}>{tx(t, item)}</span>)}</div>
+            <button className="mvp-primary" type="button" onClick={() => onBook(selectedProfessional)}>{t('booking.bookThisPartner')}</button>
           </section>
         </div>
       )}
@@ -618,6 +672,7 @@ const ProfessionalDirectory = ({
 };
 
 const MvpPrototype = () => {
+  const { t, i18n } = useTranslation();
   const { currentUser } = useAuth();
   const { data, loading, error, replaceData, reload } = useGrihammData();
   const [activeTab, setActiveTab] = useState<AppTab>('book');
@@ -639,14 +694,14 @@ const MvpPrototype = () => {
   };
 
   const validateBrief = () => {
-    if (!booking.projectType.trim()) return 'Choose a project type.';
-    if (!selectedSubtype.trim() || selectedSubtype === 'Custom requirement') return 'Choose or describe the space size.';
-    if (!booking.city.trim()) return 'Choose a city.';
-    if (!booking.areaSqft || booking.areaSqft < 100) return 'Enter a valid area.';
-    if (!booking.budgetMax || booking.budgetMax < booking.budgetMin) return 'Enter a valid budget range.';
-    if (!booking.siteAddress.trim()) return 'Add the site address or locality.';
-    if (!booking.desiredStartDate) return 'Select when you want the project to start.';
-    if (booking.targetHandoverDate && booking.targetHandoverDate < booking.desiredStartDate) return 'Target handover cannot be before the start date.';
+    if (!booking.projectType.trim()) return t('booking.validation.projectType');
+    if (!selectedSubtype.trim() || selectedSubtype === 'Custom requirement') return t('booking.validation.subtype');
+    if (!booking.city.trim()) return t('booking.validation.city');
+    if (!booking.areaSqft || booking.areaSqft < 100) return t('booking.validation.area');
+    if (!booking.budgetMax || booking.budgetMax < booking.budgetMin) return t('booking.validation.budget');
+    if (booking.requestedServices.length === 0) return t('booking.validation.work');
+    if (!booking.desiredStartDate) return t('booking.validation.start');
+    if (booking.targetHandoverDate && booking.targetHandoverDate < booking.desiredStartDate) return t('booking.validation.handover');
     return '';
   };
 
@@ -657,36 +712,51 @@ const MvpPrototype = () => {
       setBriefReady(false);
       return;
     }
-    setMessage('Brief ready. Showing recommended team from listed partners.');
+    setMessage(t('booking.ready'));
     setBriefReady(true);
   };
 
   const requireLogin = (action: string) => {
     if (currentUser) return true;
-    setMessage(`Login to ${action}. Browsing professionals stays open.`);
+    setMessage(t('booking.loginToAction', { action }));
     setIsAuthModalOpen(true);
     return false;
   };
 
-  const createProject = async (professional?: Professional) => {
-    if (!requireLogin(professional ? 'book this professional' : 'create a booking request') || !currentUser) return;
+  const createProject = async (professional: Professional) => {
+    if (professional.type !== 'Contractor') {
+      setMessage(t('booking.contractorOnly'));
+      return;
+    }
+    if (!requireLogin(t('booking.actions.bookProfessional')) || !currentUser) return;
     setSaving(true);
     setMessage('');
     try {
       const scope = buildProjectScope(selectedPropertyLabel, selectedSubtype, booking.areaType, booking.areaSqft, booking.budgetMin, booking.budgetMax, booking);
       const scopedBrief = [
         ...scope,
-        professional ? `Requested professional: ${professional.name}` : '',
+        professional ? t('booking.requestedProfessional', { name: professional.name }) : '',
       ].filter(Boolean);
       const nextData = await api.createProject({
         customerUid: currentUser.uid,
         customerName: currentUser.displayName || currentUser.email?.split('@')[0] || 'Grihamm customer',
         city: booking.city,
         homeType: `${selectedPropertyLabel} - ${selectedSubtype}`,
+        projectType: selectedPropertyLabel,
+        propertySubtype: selectedSubtype,
+        areaType: booking.areaType,
+        areaSqft: booking.areaSqft,
         budget: booking.budgetMax,
+        budgetMin: booking.budgetMin,
+        budgetMax: booking.budgetMax,
+        requestedServices: booking.requestedServices,
+        siteAddress: booking.siteAddress,
+        visitPreference: booking.visitPreference,
+        preferredLanguage: i18n.language,
+        briefNotes: booking.timeline,
         scope: scopedBrief,
-        designerId: professional?.type === 'Interior Designer' ? professional.id : null,
-        contractorId: professional?.type === 'Contractor' ? professional.id : null,
+        designerId: null,
+        contractorId: professional.id,
         desiredStartDate: booking.desiredStartDate,
         targetHandoverDate: booking.targetHandoverDate,
         timelineNote: booking.timeline,
@@ -698,7 +768,7 @@ const MvpPrototype = () => {
         await reload();
       }
       setBriefFiles([]);
-      setMessage(professional ? `Booking request created with ${professional.name}.` : 'Booking request created for Grihamm operations.');
+      setMessage(t('booking.requestCreatedWith', { name: professional.name }));
       setActiveTab('contractors');
     } catch (err) {
       setMessage(err instanceof Error ? err.message : 'Could not create booking.');

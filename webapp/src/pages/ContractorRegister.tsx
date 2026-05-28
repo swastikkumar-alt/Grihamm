@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { ShieldCheck, Truck, Wrench, CheckCircle2, HardHat, Building, AlertCircle, LogIn } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import AuthModal from '../components/AuthModal';
+import LanguageSelect from '../components/LanguageSelect';
 import { useAuth } from '../contexts/AuthContext';
 import { api } from '../lib/api';
 import { partnerSpecializations, supportedCities } from '../lib/platformConfig';
@@ -43,6 +45,7 @@ interface FormData {
 }
 
 const ContractorRegister = () => {
+  const { t } = useTranslation();
   const { currentUser, loading: authLoading } = useAuth();
   const [step, setStep] = useState(1);
   const [submitted, setSubmitted] = useState(false);
@@ -184,6 +187,14 @@ const ContractorRegister = () => {
           .split(',')
           .map(area => area.trim())
           .filter(Boolean),
+        businessAddress: formData.businessAddress.trim(),
+        languages: formData.languages.split(',').map(item => item.trim()).filter(Boolean),
+        teamSize: Number(formData.teamSize) || 0,
+        monthlyCapacity: formData.workCapacity.trim(),
+        materialBrands: formData.materialBrands.split(',').map(item => item.trim()).filter(Boolean),
+        warrantyPolicy: formData.warrantyPolicy.trim(),
+        referenceProjects: formData.referenceProjects.split('\n').map(item => item.trim()).filter(Boolean),
+        insuranceCoverage: formData.insuranceCoverage.trim(),
         gstin: formData.gstin.trim(),
         grihammCertified: formData.grihammCertified,
         academyCredential: formData.academyCredential.trim(),
@@ -222,7 +233,7 @@ const ContractorRegister = () => {
     return (
       <div style={{ background: 'var(--background)', minHeight: '100vh', paddingTop: '120px' }}>
         <div className="container" style={{ maxWidth: '800px', color: 'var(--text-muted)' }}>
-          Checking login status...
+          {t('common.loading')}
         </div>
       </div>
     );
@@ -232,6 +243,9 @@ const ContractorRegister = () => {
     return (
       <div style={{ background: 'var(--background)', minHeight: '100vh', paddingTop: '104px' }}>
         <div className="container" style={{ maxWidth: '820px', paddingBottom: '5rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '1rem' }}>
+            <LanguageSelect />
+          </div>
           <motion.div
             initial={{ opacity: 0, y: 18 }}
             animate={{ opacity: 1, y: 0 }}
@@ -267,13 +281,13 @@ const ContractorRegister = () => {
             </p>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: '1rem', maxWidth: 520, margin: '0 auto' }}>
               <button className="btn-primary" style={{ padding: '1.1rem' }} onClick={() => setIsAuthModalOpen(true)}>
-                LOGIN TO CONTINUE
+                {t('nav.login')}
               </button>
               <button
                 style={{ padding: '1.1rem', border: '1px solid var(--glass-border)', borderRadius: 8, background: 'transparent', color: 'var(--text)', fontWeight: 800 }}
                 onClick={() => { window.location.href = '/marketplace'; }}
               >
-                EXPLORE PROFESSIONALS
+                {t('booking.tabs.contractors')}
               </button>
             </div>
           </motion.div>
@@ -286,6 +300,9 @@ const ContractorRegister = () => {
   return (
     <div style={{ background: 'var(--background)', minHeight: '100vh', paddingTop: '104px' }}>
       <div className="container" style={{ maxWidth: '980px' }}>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '1rem' }}>
+          <LanguageSelect />
+        </div>
 
         {submitted ? (
           <motion.div

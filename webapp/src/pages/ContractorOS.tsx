@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Camera, ClipboardList, FileImage, MessageSquareText, ShieldCheck, Upload } from 'lucide-react';
 import { api, formatCurrency, type Professional } from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
@@ -6,6 +7,7 @@ import { useGrihammData } from '../lib/useGrihammData';
 import './Dashboard.css';
 
 const ContractorOS = () => {
+  const { t } = useTranslation();
   const { currentUser, userProfile } = useAuth();
   const { data, loading, error, replaceData } = useGrihammData();
   const isAdmin = userProfile?.role === 'admin';
@@ -66,7 +68,7 @@ const ContractorOS = () => {
       setCompletedText('');
       setNextStep('');
       setFiles([]);
-      setNotice('Progress update submitted with proof files. Customer can now review and remark.');
+      setNotice(t('contractorOS.submitted'));
     } catch (err) {
       setNotice(err instanceof Error ? err.message : 'Could not submit progress update.');
     } finally {
@@ -79,9 +81,9 @@ const ContractorOS = () => {
       <div className="container">
         <div className="dashboard-header">
           <div>
-            <div className="dashboard-kicker">Partner profile</div>
-            <h1>Upload progress. Resolve remarks.</h1>
-            <p>Partners update assigned work with photos, completed tasks, blockers, and next steps. Customers review those updates from their profile and leave remarks against them.</p>
+            <div className="dashboard-kicker">{t('contractorOS.kicker')}</div>
+            <h1>{t('contractorOS.title')}</h1>
+            <p>{t('contractorOS.intro')}</p>
           </div>
           {partners.length > 1 && (
             <select value={selectedPartner?.id || ''} onChange={event => setSelectedPartnerId(event.target.value)} className="dashboard-select">
@@ -95,8 +97,8 @@ const ContractorOS = () => {
 
         {!loading && partners.length === 0 && (
           <div className="dashboard-card">
-            <h2>No partner profile linked</h2>
-            <p>Your account is not linked to a listed professional profile yet. After admin approval, assigned jobs and upload controls will appear here.</p>
+            <h2>{t('contractorOS.noProfileTitle')}</h2>
+            <p>{t('contractorOS.noProfileText')}</p>
           </div>
         )}
 
@@ -113,9 +115,9 @@ const ContractorOS = () => {
               </section>
 
               <section className="dashboard-card">
-                <h3>Assigned jobs</h3>
+                <h3>{t('contractorOS.assignedJobs')}</h3>
                 <div className="job-list">
-                  {assignedProjects.length === 0 && <p>No assigned project yet.</p>}
+                  {assignedProjects.length === 0 && <p>{t('contractorOS.noAssigned')}</p>}
                   {assignedProjects.map(project => (
                     <button key={project.id} type="button" className={selectedProject?.id === project.id ? 'active' : ''} onClick={() => setSelectedProjectId(project.id)}>
                       <strong>{project.id}</strong>
@@ -141,30 +143,30 @@ const ContractorOS = () => {
                 </section>
 
                 <section className="dashboard-card partner-upload-card">
-                  <h2><Upload size={20} /> Submit work update</h2>
+                  <h2><Upload size={20} /> {t('contractorOS.submitUpdate')}</h2>
                   <div className="dashboard-form-grid">
-                    <input value={title} onChange={event => setTitle(event.target.value)} placeholder="Update title" />
-                    <input value={nextStep} onChange={event => setNextStep(event.target.value)} placeholder="Next visit / next step" />
-                    <textarea value={summary} onChange={event => setSummary(event.target.value)} placeholder="Work completed, blockers, material status, and site condition." />
-                    <textarea value={completedText} onChange={event => setCompletedText(event.target.value)} placeholder="Completed tasks, one per line" />
+                    <input value={title} onChange={event => setTitle(event.target.value)} placeholder={t('contractorOS.updateTitle')} />
+                    <input value={nextStep} onChange={event => setNextStep(event.target.value)} placeholder={t('contractorOS.nextStep')} />
+                    <textarea value={summary} onChange={event => setSummary(event.target.value)} placeholder={t('contractorOS.summaryPlaceholder')} />
+                    <textarea value={completedText} onChange={event => setCompletedText(event.target.value)} placeholder={t('contractorOS.completedPlaceholder')} />
                   </div>
                   <label className="upload-drop">
                     <Camera size={20} />
-                    <strong>{files.length ? `${files.length} image(s) selected` : 'Upload progress images'}</strong>
-                    <span>Images up to 8 MB each. They are saved to Supabase Storage and attached to this project.</span>
+                    <strong>{files.length ? `${files.length} image(s) selected` : t('contractorOS.uploadImages')}</strong>
+                    <span>{t('contractorOS.uploadText')}</span>
                     <input type="file" accept="image/*" multiple onChange={event => handleProgressUpload(event.target.files)} />
                   </label>
                   <button className="btn-primary" disabled={!summary.trim() || submitting} onClick={() => void submitUpdate()}>
-                    {submitting ? 'Submitting...' : 'Submit update'}
+                    {submitting ? 'Submitting...' : t('contractorOS.submitButton')}
                   </button>
                   {notice && <div className="dashboard-alert success">{notice}</div>}
                 </section>
 
                 <div className="dashboard-two-col">
                   <section className="dashboard-card">
-                    <h3><MessageSquareText size={18} /> Customer remarks</h3>
+                    <h3><MessageSquareText size={18} /> {t('contractorOS.customerRemarks')}</h3>
                     <div className="remark-list">
-                      {remarks.length === 0 && <p>No remarks yet.</p>}
+                      {remarks.length === 0 && <p>{t('dashboard.noRemarks')}</p>}
                       {remarks.map(remark => (
                         <div key={remark.id}>
                           <strong>{remark.authorType}</strong>
@@ -175,9 +177,9 @@ const ContractorOS = () => {
                   </section>
 
                   <section className="dashboard-card">
-                    <h3><ShieldCheck size={18} /> Audit status</h3>
+                    <h3><ShieldCheck size={18} /> {t('contractorOS.auditStatus')}</h3>
                     <div className="remark-list">
-                      {audits.length === 0 && <p>No audit requested on this project.</p>}
+                      {audits.length === 0 && <p>{t('contractorOS.noAudit')}</p>}
                       {audits.map(audit => (
                         <div key={audit.id}>
                           <strong>{audit.status}</strong>
@@ -190,9 +192,9 @@ const ContractorOS = () => {
                 </div>
 
                 <section className="dashboard-card">
-                  <h3><ClipboardList size={18} /> Submitted updates</h3>
+                  <h3><ClipboardList size={18} /> {t('contractorOS.submittedUpdates')}</h3>
                   <div className="update-feed compact">
-                    {updates.length === 0 && <div className="empty-state">No update submitted yet.</div>}
+                    {updates.length === 0 && <div className="empty-state">{t('dashboard.noUpdates')}</div>}
                     {updates.map(update => (
                       <article className="update-card" key={update.id}>
                         <div className="update-card-head">
@@ -208,17 +210,17 @@ const ContractorOS = () => {
                 </section>
 
                 <section className="dashboard-card">
-                  <h3><FileImage size={18} /> Uploaded proof files</h3>
+                  <h3><FileImage size={18} /> {t('contractorOS.uploadedProof')}</h3>
                   <div className="file-list">
-                    {projectFiles.length === 0 && <p>No progress files uploaded yet.</p>}
+                    {projectFiles.length === 0 && <p>{t('contractorOS.noProof')}</p>}
                     {projectFiles.map(file => <span key={file.id}>{file.fileName}</span>)}
                   </div>
                 </section>
               </main>
             ) : (
               <section className="dashboard-card">
-                <h2>No assigned project selected</h2>
-                <p>After admin assigns a project to this partner profile, upload controls and customer remarks will appear here.</p>
+                <h2>No customer-booked project selected</h2>
+                <p>When a customer books this contractor profile, upload controls and customer remarks will appear here.</p>
               </section>
             )}
           </div>

@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import './LegalPage.css';
 
 type LegalPageType = 'terms' | 'privacy';
@@ -55,7 +56,7 @@ const legalContent: Record<LegalPageType, {
       },
       {
         title: 'Sharing',
-        text: 'Relevant project, booking, contact, and scope details may be shared between the customer, assigned professional, and Grihamm operations team so the service can be delivered and tracked.',
+        text: 'Relevant project, booking, contact, and scope details may be shared between the customer, booked contractor, and Grihamm operations team so the service can be delivered and tracked.',
       },
       {
         title: 'Storage and security',
@@ -70,18 +71,24 @@ const legalContent: Record<LegalPageType, {
 };
 
 const LegalPage = ({ type }: LegalPageProps) => {
+  const { t } = useTranslation();
   const content = legalContent[type];
+  const translated = t(`legal.${type}`, { returnObjects: true }) as {
+    kicker?: string;
+    title?: string;
+    intro?: string;
+  };
 
   return (
     <div className="legal-page">
       <section className="legal-hero">
-        <span className="legal-kicker">{content.kicker}</span>
-        <h1>{content.title}</h1>
-        <p>{content.intro}</p>
+        <span className="legal-kicker">{translated.kicker || content.kicker}</span>
+        <h1>{translated.title || content.title}</h1>
+        <p>{translated.intro || content.intro}</p>
       </section>
 
       <section className="legal-card">
-        <div className="legal-updated">Last updated: 16 May 2026</div>
+        <div className="legal-updated">{t('legal.updated')}</div>
         {content.sections.map(section => (
           <article key={section.title} className="legal-section">
             <h2>{section.title}</h2>
@@ -89,8 +96,8 @@ const LegalPage = ({ type }: LegalPageProps) => {
           </article>
         ))}
         <div className="legal-actions">
-          <Link className="btn-primary" to="/marketplace">Find services</Link>
-          <Link className="btn-outline" to="/">Back to home</Link>
+          <Link className="btn-primary" to="/marketplace">{t('legal.findServices')}</Link>
+          <Link className="btn-outline" to="/">{t('legal.backHome')}</Link>
         </div>
       </section>
     </div>

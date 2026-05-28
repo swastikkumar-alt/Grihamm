@@ -31,6 +31,13 @@ export const partnerSpecializations = [
   'Soft Furnishing',
 ];
 
+export const visitPreferences = [
+  'Site visit this week',
+  'Weekend visit preferred',
+  'Online consultation first',
+  'Call me before scheduling',
+];
+
 export const defaultBooking = {
   siteAddress: '',
   timeline: '',
@@ -45,6 +52,7 @@ export const defaultBooking = {
   areaSqft: 0,
   budgetMin: 100000,
   budgetMax: 800000,
+  requestedServices: [] as string[],
   homeType: '',
   budget: 300000,
 };

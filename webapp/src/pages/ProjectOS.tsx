@@ -1,10 +1,13 @@
 import { useState, type Dispatch, type ReactNode, type SetStateAction } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { AlertTriangle, Camera, CheckCircle2, ClipboardCheck, FileImage, MessageSquareText, User, Wallet } from 'lucide-react';
+import LanguageSelect from '../components/LanguageSelect';
 import { api, formatCurrency, type AuditRequest, type Professional, type Project, type ProjectFile, type Remark, type SiteUpdate, type WalletTransaction } from '../lib/api';
 import { useAuth, type AuthUser, type UserProfile } from '../contexts/AuthContext';
 import { useGrihammData } from '../lib/useGrihammData';
 import { getRazorpayKeyId, openRazorpayCheckout } from '../lib/razorpay';
+import { labelKey } from '../i18n';
 import './Dashboard.css';
 
 type CustomerTab = 'projects' | 'wallet' | 'settings';
@@ -20,12 +23,68 @@ const customerTabs: { id: CustomerTab; label: string; icon: ReactNode }[] = [
   { id: 'wallet', label: 'Escrow Wallet', icon: <Wallet size={16} /> },
 ];
 
+const profilePhotoMaxBytes = 5 * 1024 * 1024;
+const profilePhotoMaxDimension = 320;
+
+const initialsAvatarDataUrl = (initials: string) => {
+  const safeInitials = initials.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 2) || 'GH';
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="160" height="160" viewBox="0 0 160 160"><rect width="160" height="160" rx="80" fill="#123f3a"/><text x="50%" y="55%" text-anchor="middle" dominant-baseline="middle" fill="#f8efe1" font-family="Georgia, serif" font-size="56" font-weight="700">${safeInitials}</text></svg>`;
+  return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
+};
+
+const readDataUrl = (file: Blob): Promise<string> => new Promise((resolve, reject) => {
+  const reader = new FileReader();
+  reader.onload = () => resolve(String(reader.result || ''));
+  reader.onerror = () => reject(new Error('Unable to read profile image.'));
+  reader.readAsDataURL(file);
+});
+
+const compressProfilePhoto = async (file: File): Promise<string> => {
+  if (!file.type.startsWith('image/')) throw new Error('Please choose an image file.');
+  if (file.size > profilePhotoMaxBytes) throw new Error('Please choose an image under 5 MB.');
+  if (file.type === 'image/svg+xml' || file.type === 'image/gif') return readDataUrl(file);
+
+  const objectUrl = URL.createObjectURL(file);
+  try {
+    const image = new Image();
+    await new Promise<void>((resolve, reject) => {
+      image.onload = () => resolve();
+      image.onerror = () => reject(new Error('Unable to load the selected profile image.'));
+      image.src = objectUrl;
+    });
+
+    const scale = Math.min(1, profilePhotoMaxDimension / Math.max(image.naturalWidth, image.naturalHeight));
+    const width = Math.max(1, Math.round(image.naturalWidth * scale));
+    const height = Math.max(1, Math.round(image.naturalHeight * scale));
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const context = canvas.getContext('2d');
+    if (!context) throw new Error('Unable to prepare profile image.');
+
+    context.fillStyle = '#f8efe1';
+    context.fillRect(0, 0, width, height);
+    context.drawImage(image, 0, 0, width, height);
+
+    const blob = await new Promise<Blob>((resolve, reject) => {
+      canvas.toBlob(result => {
+        if (result) resolve(result);
+        else reject(new Error('Unable to compress profile image.'));
+      }, 'image/jpeg', 0.82);
+    });
+    return readDataUrl(blob);
+  } finally {
+    URL.revokeObjectURL(objectUrl);
+  }
+};
+
 const getTabFromSearch = (search: string): CustomerTab => {
   const requestedTab = new URLSearchParams(search).get('tab');
   return requestedTab === 'wallet' || requestedTab === 'settings' ? requestedTab : 'projects';
 };
 
 const ProjectOS = () => {
+  const { t } = useTranslation();
   const location = useLocation();
   const navigate = useNavigate();
   const { currentUser, userProfile, updateProfile } = useAuth();
@@ -48,9 +107,7 @@ const ProjectOS = () => {
   const walletTransactions = data?.walletTransactions.filter(transaction => transaction.projectId === selectedProject?.id) || [];
   const professionalsById = new Map((data?.professionals || []).map(item => [item.id, item]));
   const bookedContractor = selectedProject?.contractorId ? professionalsById.get(selectedProject.contractorId) || null : null;
-  const bookedDesigner = selectedProject?.designerId ? professionalsById.get(selectedProject.designerId) || null : null;
   const bookedProfessionals = [
-    bookedDesigner,
     bookedContractor,
   ].filter(Boolean) as Professional[];
 
@@ -80,7 +137,7 @@ const ProjectOS = () => {
     });
     replaceData(nextData);
     setEscalationText('');
-    setNotice({ tone: 'success', text: 'Escalation sent to the assigned partner and saved on the project record.' });
+    setNotice({ tone: 'success', text: 'Escalation sent to the booked contractor and saved on the project record.' });
   };
 
   const requestAudit = async () => {
@@ -129,9 +186,9 @@ const ProjectOS = () => {
       <div className="container">
         <div className="dashboard-header">
           <div>
-            <div className="dashboard-kicker">Customer dashboard</div>
-            <h1>Your booked project and proof ledger.</h1>
-            <p>Track the contractor you booked, review photo proof, leave remarks, and keep wallet releases tied to verified milestones.</p>
+            <div className="dashboard-kicker">{t('dashboard.kicker')}</div>
+            <h1>{t('dashboard.title')}</h1>
+            <p>{t('dashboard.intro')}</p>
           </div>
           <div className="dashboard-header-actions">
             {projects.length > 0 && (
@@ -141,9 +198,9 @@ const ProjectOS = () => {
             )}
             {selectedProject && (
               <div className="dashboard-booked-summary">
-                <span>Booked contractor</span>
-                <strong>{bookedContractor?.name || 'Assignment pending'}</strong>
-                <small>{bookedContractor ? `${bookedContractor.type} - ${bookedContractor.city}` : 'Operations will assign after brief verification.'}</small>
+                <span>{t('dashboard.bookedContractor')}</span>
+                <strong>{bookedContractor?.name || t('dashboard.assignmentPending')}</strong>
+                <small>{bookedContractor ? `${bookedContractor.type} - ${bookedContractor.city}` : t('dashboard.operationsAssign')}</small>
               </div>
             )}
           </div>
@@ -158,7 +215,7 @@ const ProjectOS = () => {
               {customerTabs.map(tab => (
                 <button key={tab.id} type="button" className={activeTab === tab.id ? 'active' : ''} onClick={() => navigate(tab.id === 'projects' ? '/track-project' : `/track-project?tab=${tab.id}`)} aria-selected={activeTab === tab.id}>
                   {tab.icon}
-                  {tab.label}
+                  {tab.id === 'projects' ? t('dashboard.projectsTracker') : t('dashboard.escrowWallet')}
                 </button>
               ))}
             </div>
@@ -258,7 +315,12 @@ const TrackerView = ({
   escalationText: string;
   setEscalationText: Dispatch<SetStateAction<string>>;
   escalateToPartner: () => Promise<void>;
-}) => (
+}) => {
+  const { t } = useTranslation();
+  const translateList = (values: string[]) => values.map(value => t(`taxonomy.${labelKey(value)}`, value)).join(', ');
+  const projectWindow = [project.desiredStartDate, project.targetHandoverDate].filter(Boolean).join(' - ') || t('common.pending');
+
+  return (
   <div className="profile-grid">
     <main className="profile-main">
       <section className="dashboard-card project-summary-card">
@@ -270,23 +332,29 @@ const TrackerView = ({
         <strong>{project.progress}%</strong>
         <div className="dashboard-progress"><span style={{ width: `${project.progress}%` }} /></div>
         <p>{project.nextAction}</p>
+        <div className="project-intent-grid">
+          <div><span>{t('dashboard.projectIntent')}</span><strong>{project.projectType || project.homeType}</strong></div>
+          <div><span>{t('dashboard.requestedWork')}</span><strong>{translateList(project.requestedServices.length ? project.requestedServices : project.scope)}</strong></div>
+          <div><span>{t('dashboard.projectWindow')}</span><strong>{projectWindow}</strong></div>
+          <div><span>{t('booking.siteAddressOptional')}</span><strong>{project.siteAddress || t('common.optional')}</strong></div>
+        </div>
       </section>
 
       <section className="dashboard-card">
         <div className="dashboard-section-head">
           <div>
-            <h2>Partner updates</h2>
-            <p>Leave remarks directly on a partner update when proof needs correction or clarification.</p>
+            <h2>{t('dashboard.partnerUpdates')}</h2>
+            <p>{t('dashboard.partnerUpdatesText')}</p>
           </div>
         </div>
 
         <div className="update-feed">
-          {updates.length === 0 && <div className="empty-state">No partner updates yet. Uploaded proof will appear here.</div>}
+          {updates.length === 0 && <div className="empty-state">{t('dashboard.noUpdates')}</div>}
           {updates.map(update => (
             <article className="update-card" key={update.id}>
               <div className="update-card-head">
                 <div>
-                  <span>{professionalsById.get(update.professionalId)?.name || 'Assigned partner'}</span>
+                  <span>{professionalsById.get(update.professionalId)?.name || 'Booked contractor'}</span>
                   <h3>{update.title}</h3>
                   <p>{update.summary}</p>
                 </div>
@@ -301,10 +369,10 @@ const TrackerView = ({
               <textarea
                 value={remarkTextByUpdate[update.id] || ''}
                 onChange={event => setRemarkTextByUpdate(prev => ({ ...prev, [update.id]: event.target.value }))}
-                placeholder="Leave a remark for this update..."
+                placeholder={t('dashboard.remarkPlaceholder')}
               />
               <button className="btn-primary" disabled={!(remarkTextByUpdate[update.id] || '').trim()} onClick={() => void submitRemark(update.id)}>
-                Send remark to partner
+                {t('dashboard.sendRemark')}
               </button>
             </article>
           ))}
@@ -314,14 +382,14 @@ const TrackerView = ({
 
     <aside className="profile-side">
       <section className="dashboard-card booked-partner-card">
-        <h3><User size={18} /> Booked contractor</h3>
+        <h3><User size={18} /> {t('dashboard.bookedContractor')}</h3>
         <div className="booked-contractor-focus">
           <span>Primary execution partner</span>
-          <strong>{bookedContractor?.name || 'Contractor pending assignment'}</strong>
-          <small>{bookedContractor ? `${bookedContractor.phone || 'Phone pending'} - ${bookedContractor.experienceYears}+ yrs - ${bookedContractor.clientsServed} clients` : 'Your selected contractor will appear here once the booking request is accepted or assigned.'}</small>
+          <strong>{bookedContractor?.name || t('dashboard.assignmentPending')}</strong>
+          <small>{bookedContractor ? `${bookedContractor.phone || 'Phone pending'} - ${bookedContractor.experienceYears}+ yrs - ${bookedContractor.clientsServed} clients` : 'Your selected contractor will appear here after you book from the contractor directory.'}</small>
         </div>
         <div className="booked-partner-list">
-          {bookedProfessionals.length === 0 && <p>No professional has been assigned yet. Operations will connect the right partner after scope verification.</p>}
+          {bookedProfessionals.length === 0 && <p>{t('dashboard.operationsAssign')}</p>}
           {bookedProfessionals.map(partner => (
             <div key={partner.id} className="booked-partner-row">
               <div className="booked-partner-avatar">{partner.name.split(' ').filter(Boolean).slice(0, 2).map(part => part[0]).join('').toUpperCase()}</div>
@@ -336,16 +404,16 @@ const TrackerView = ({
       </section>
 
       <section className="dashboard-card escalation-card">
-        <h3><AlertTriangle size={18} /> Escalate to partner</h3>
-        <p>Use this when there is a delay, mismatch, missing item, or quality concern that the assigned partner should resolve.</p>
-        <textarea value={escalationText} onChange={event => setEscalationText(event.target.value)} placeholder="Describe the issue clearly..." />
-        <button className="btn-primary" disabled={!escalationText.trim()} onClick={() => void escalateToPartner()}>Escalate issue</button>
+        <h3><AlertTriangle size={18} /> {t('dashboard.escalationTitle')}</h3>
+        <p>{t('dashboard.escalationText')}</p>
+        <textarea value={escalationText} onChange={event => setEscalationText(event.target.value)} placeholder={t('dashboard.escalationPlaceholder')} />
+        <button className="btn-primary" disabled={!escalationText.trim()} onClick={() => void escalateToPartner()}>{t('dashboard.escalationButton')}</button>
       </section>
 
       <section className="dashboard-card">
-        <h3><MessageSquareText size={18} /> Remarks trail</h3>
+        <h3><MessageSquareText size={18} /> {t('dashboard.remarksTrail')}</h3>
         <div className="remark-list">
-          {remarks.length === 0 && <p>No remarks yet.</p>}
+          {remarks.length === 0 && <p>{t('dashboard.noRemarks')}</p>}
           {remarks.map(remark => (
             <div key={remark.id}>
               <strong>{remark.authorType}</strong>
@@ -356,9 +424,9 @@ const TrackerView = ({
       </section>
 
       <section className="dashboard-card">
-        <h3><FileImage size={18} /> Uploaded files</h3>
+        <h3><FileImage size={18} /> {t('dashboard.uploadedFiles')}</h3>
         <div className="file-list">
-          {files.length === 0 && <p>No files uploaded yet.</p>}
+          {files.length === 0 && <p>{t('dashboard.noFiles')}</p>}
           {files.map(file => (
             file.signedUrl
               ? <a key={file.id} href={file.signedUrl} target="_blank" rel="noreferrer">{file.purpose}: {file.fileName}</a>
@@ -368,7 +436,8 @@ const TrackerView = ({
       </section>
     </aside>
   </div>
-);
+  );
+};
 
 const WalletView = ({
   project,
@@ -385,6 +454,7 @@ const WalletView = ({
   userProfile: UserProfile | null;
   onFund: (request: FundingRequest) => Promise<boolean>;
 }) => {
+  const { t } = useTranslation();
   const [fundAmount, setFundAmount] = useState('');
   const [fundReference, setFundReference] = useState('');
   const [razorpayError, setRazorpayError] = useState('');
@@ -459,8 +529,8 @@ const WalletView = ({
     <section className="dashboard-card wallet-card">
       <div className="wallet-hero-row">
         <div>
-          <h2>Escrow wallet</h2>
-          <p>Funds paid by the customer are recorded here and unlock only after partner proof, customer approval, or audit resolution.</p>
+          <h2>{t('dashboard.walletTitle')}</h2>
+          <p>{t('dashboard.walletIntro')}</p>
         </div>
         <strong>{formatCurrency(totalPaid)}</strong>
       </div>
@@ -470,20 +540,20 @@ const WalletView = ({
         <span className="unfunded" style={{ width: walletPercent(unfunded) }} />
       </div>
       <div className="wallet-metrics">
-        <div><span>Paid by customer</span><strong>{formatCurrency(totalPaid)}</strong></div>
-        <div><span>Released</span><strong>{formatCurrency(released)}</strong></div>
-        <div><span>In escrow</span><strong>{formatCurrency(escrow)}</strong></div>
-        <div><span>Unfunded</span><strong>{formatCurrency(unfunded)}</strong></div>
+        <div><span>{t('dashboard.paidByCustomer')}</span><strong>{formatCurrency(totalPaid)}</strong></div>
+        <div><span>{t('dashboard.released')}</span><strong>{formatCurrency(released)}</strong></div>
+        <div><span>{t('dashboard.inEscrow')}</span><strong>{formatCurrency(escrow)}</strong></div>
+        <div><span>{t('dashboard.unfunded')}</span><strong>{formatCurrency(unfunded)}</strong></div>
       </div>
 
       <div className="wallet-funding-panel">
         <div>
-          <h3>Fund this project wallet</h3>
-          <p>Record customer funding against this project before milestone releases. Online payment gateway capture can use this same transaction ledger.</p>
+          <h3>{t('dashboard.fundTitle')}</h3>
+          <p>{t('dashboard.fundText')}</p>
         </div>
         <div className="wallet-funding-form">
           <label>
-            Amount
+            {t('common.amount')}
             <input
               type="number"
               min="1"
@@ -494,7 +564,7 @@ const WalletView = ({
             />
           </label>
           <label>
-            Payment reference
+            {t('dashboard.paymentReference')}
             <input
               value={fundReference}
               onChange={event => setFundReference(event.target.value)}
@@ -502,10 +572,10 @@ const WalletView = ({
             />
           </label>
           <button className="btn-primary" type="button" disabled={funding || requestedAmount <= 0} onClick={() => void submitFunding()}>
-            {funding ? 'Recording...' : 'Record reference'}
+            {funding ? 'Recording...' : t('dashboard.recordReference')}
           </button>
           <button className="btn-outline" type="button" disabled={!hasRazorpayKey || paying || funding || requestedAmount <= 0} onClick={() => void payWithRazorpay()}>
-            {paying ? 'Opening...' : 'Pay with Razorpay'}
+            {paying ? 'Opening...' : t('dashboard.payRazorpay')}
           </button>
         </div>
         {!hasRazorpayKey && <div className="dashboard-alert warning compact">Add VITE_RAZORPAY_KEY_ID to enable Razorpay test checkout.</div>}
@@ -515,11 +585,11 @@ const WalletView = ({
       <div className="wallet-history">
         <div className="dashboard-section-head">
           <div>
-            <h3>Funding ledger</h3>
+            <h3>{t('dashboard.fundingLedger')}</h3>
             <p>Every wallet action is persisted as a transaction tied to this project.</p>
           </div>
         </div>
-        {transactions.length === 0 && <div className="empty-state">No wallet transactions recorded yet.</div>}
+        {transactions.length === 0 && <div className="empty-state">{t('dashboard.noTransactions')}</div>}
         {transactions.map(transaction => (
           <div className="wallet-history-row" key={transaction.id}>
             <div>
@@ -564,23 +634,41 @@ const SettingsView = ({
   setPreferredSlot: (value: string) => void;
   requestAudit: () => Promise<void>;
 }) => {
+  const { t } = useTranslation();
   const [phone, setPhone] = useState(userProfile?.phoneNumber || '');
-  const [avatarPreview, setAvatarPreview] = useState(currentUser?.photoURL || '');
-  const [selectedAvatar, setSelectedAvatar] = useState(avatarOptions[0]);
-  const [saved, setSaved] = useState('');
+  const [avatarPreview, setAvatarPreview] = useState(userProfile?.photoURL || currentUser?.photoURL || '');
+  const [selectedAvatar, setSelectedAvatar] = useState('');
+  const [profileNotice, setProfileNotice] = useState<{ type: 'success' | 'warning'; text: string } | null>(null);
 
   const profileInitial = selectedAvatar || (currentUser?.displayName?.slice(0, 2) || currentUser?.email?.slice(0, 2) || 'GH').toUpperCase();
 
-  const handlePhoto = (file: File | undefined) => {
+  const handlePhoto = async (file: File | undefined) => {
     if (!file || !file.type.startsWith('image/')) return;
-    const reader = new FileReader();
-    reader.onload = () => setAvatarPreview(String(reader.result || ''));
-    reader.readAsDataURL(file);
+    try {
+      const compressedPhoto = await compressProfilePhoto(file);
+      setAvatarPreview(compressedPhoto);
+      setSelectedAvatar('');
+      setProfileNotice(null);
+    } catch (error) {
+      setProfileNotice({
+        type: 'warning',
+        text: error instanceof Error ? error.message : 'Unable to prepare the selected photo.',
+      });
+    }
   };
 
   const saveProfile = async () => {
-    await updateProfile({ phoneNumber: phone, profileCompleted: true });
-    setSaved('Profile details updated.');
+    try {
+      const nextPhoto = avatarPreview || initialsAvatarDataUrl(profileInitial);
+      await updateProfile({ phoneNumber: phone, photoURL: nextPhoto, profileCompleted: true });
+      setAvatarPreview(nextPhoto);
+      setProfileNotice({ type: 'success', text: t('dashboard.profileSaved') });
+    } catch (error) {
+      setProfileNotice({
+        type: 'warning',
+        text: error instanceof Error ? error.message : 'Unable to save profile details.',
+      });
+    }
   };
 
   return (
@@ -589,8 +677,8 @@ const SettingsView = ({
         <section className="dashboard-card profile-settings-card">
           <div className="dashboard-section-head">
             <div>
-              <h2><User size={20} /> User profile</h2>
-              <p>Manage the details Grihamm uses for project coordination.</p>
+              <h2><User size={20} /> {t('dashboard.settingsTitle')}</h2>
+              <p>{t('dashboard.settingsText')}</p>
             </div>
           </div>
 
@@ -604,10 +692,11 @@ const SettingsView = ({
                   <button
                     key={option}
                     type="button"
-                    className={selectedAvatar === option && !avatarPreview ? 'active' : ''}
+                    className={selectedAvatar === option ? 'active' : ''}
                     onClick={() => {
-                      setAvatarPreview('');
                       setSelectedAvatar(option);
+                      setAvatarPreview(initialsAvatarDataUrl(option));
+                      setProfileNotice(null);
                     }}
                   >
                     {option}
@@ -617,7 +706,7 @@ const SettingsView = ({
               <label className="camera-upload">
                 <Camera size={16} />
                 Use camera or photo
-                <input type="file" accept="image/*" capture="user" onChange={event => handlePhoto(event.target.files?.[0])} />
+                <input type="file" accept="image/*" capture="user" onChange={event => void handlePhoto(event.target.files?.[0])} />
               </label>
             </div>
           </div>
@@ -628,21 +717,22 @@ const SettingsView = ({
               <input value={currentUser?.displayName || userProfile?.displayName || ''} disabled />
             </label>
             <label>
-              Email
+              {t('common.email')}
               <input value={currentUser?.email || userProfile?.email || ''} disabled />
             </label>
             <label>
-              Phone number
+              {t('common.phone')}
               <input value={phone} onChange={event => setPhone(event.target.value)} placeholder="+91 98765 43210" />
             </label>
             <label>
-              Profile type
+              {t('common.profile')}
               <input value={userProfile?.role || 'homeowner'} disabled />
             </label>
           </div>
+          <LanguageSelect />
 
-          {saved && <div className="dashboard-alert success">{saved}</div>}
-          <button className="btn-primary" type="button" onClick={() => void saveProfile()}>Save profile</button>
+          {profileNotice && <div className={`dashboard-alert ${profileNotice.type}`}>{profileNotice.text}</div>}
+          <button className="btn-primary" type="button" onClick={() => void saveProfile()}>{t('dashboard.saveProfile')}</button>
         </section>
       </main>
 
@@ -680,20 +770,22 @@ const AuditView = ({
   setAuditReason: (value: string) => void;
   setPreferredSlot: (value: string) => void;
   requestAudit: () => Promise<void>;
-}) => (
+}) => {
+  const { t } = useTranslation();
+  return (
   <>
     <section className="dashboard-card audit-request-card">
-      <h2>Audit & Refund</h2>
-      <p>Request a physical Grihamm audit when work quality, delay, or scope mismatch needs independent review. Audit findings become part of the project record.</p>
+      <h2>{t('dashboard.auditTitle')}</h2>
+      <p>{t('dashboard.auditText')}</p>
       <strong>{formatCurrency(auditPrice)}</strong>
       {!hasProject && <div className="dashboard-alert warning">Create a booking before requesting an audit.</div>}
-      <textarea value={auditReason} onChange={event => setAuditReason(event.target.value)} placeholder="What should our audit team inspect?" />
-      <input value={preferredSlot} onChange={event => setPreferredSlot(event.target.value)} placeholder="Preferred visit slot" />
-      <button className="btn-primary" disabled={!hasProject || !auditReason.trim()} onClick={() => void requestAudit()}>Request audit</button>
+      <textarea value={auditReason} onChange={event => setAuditReason(event.target.value)} placeholder={t('dashboard.auditReason')} />
+      <input value={preferredSlot} onChange={event => setPreferredSlot(event.target.value)} placeholder={t('dashboard.preferredSlot')} />
+      <button className="btn-primary" disabled={!hasProject || !auditReason.trim()} onClick={() => void requestAudit()}>{t('dashboard.requestAudit')}</button>
     </section>
 
     <aside className="dashboard-card">
-      <h3>Audit history</h3>
+      <h3>{t('dashboard.auditHistory')}</h3>
       <div className="remark-list">
         {audits.length === 0 && <p>No audit requested yet.</p>}
         {audits.map(audit => (
@@ -706,6 +798,7 @@ const AuditView = ({
       </div>
     </aside>
   </>
-);
+  );
+};
 
 export default ProjectOS;

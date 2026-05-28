@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   AlertTriangle,
   BadgeIndianRupee,
@@ -11,14 +12,16 @@ import {
   UsersRound,
   Wallet,
 } from 'lucide-react';
-import { api, formatCurrency, type PlatformUser, type ProfessionalType } from '../lib/api';
+import { api, formatCurrency, type ContactLead, type PlatformUser, type ProfessionalType } from '../lib/api';
 import { supportedCities } from '../lib/platformConfig';
+import { labelKey } from '../i18n';
 import { useGrihammData } from '../lib/useGrihammData';
 import './Dashboard.css';
 
-type AdminTab = 'projects' | 'professionals' | 'applications' | 'updates' | 'audits' | 'users' | 'wallet';
+type AdminTab = 'projects' | 'professionals' | 'applications' | 'updates' | 'audits' | 'users' | 'wallet' | 'leads';
 
 const Admin = () => {
+  const { t } = useTranslation();
   const { data, loading, error, replaceData } = useGrihammData();
   const [activeTab, setActiveTab] = useState<AdminTab>('projects');
   const [notice, setNotice] = useState('');
@@ -37,6 +40,14 @@ const Admin = () => {
     priceUnit: 'per project',
     servicesText: '',
     serviceAreasText: '',
+    businessAddress: '',
+    languagesText: '',
+    teamSize: 0,
+    monthlyCapacity: '',
+    materialBrandsText: '',
+    warrantyPolicy: '',
+    referenceProjectsText: '',
+    insuranceCoverage: '',
     portfolioImagesText: '',
     bio: '',
   });
@@ -45,8 +56,8 @@ const Admin = () => {
   const projectsById = new Map((data?.projects || []).map(item => [item.id, item]));
   const usersByUid = new Map((data?.users || []).map(item => [item.uid, item]));
   const users = data?.users || [];
-  const contractors = data?.professionals.filter(item => item.type === 'Contractor' && item.status === 'listed') || [];
   const openRemarks = data?.remarks.filter(item => item.status === 'open').length || 0;
+  const newContactLeads = data?.contactLeads.filter(item => item.status === 'new').length || 0;
   const totalWalletPaid = (data?.walletTransactions || [])
     .filter(transaction => transaction.transactionType === 'fund' && transaction.status === 'recorded')
     .reduce((total, transaction) => total + transaction.amount, 0);
@@ -59,15 +70,20 @@ const Admin = () => {
   const getProjectRefunded = (projectId: string) => (data?.walletTransactions || [])
     .filter(transaction => transaction.projectId === projectId && transaction.transactionType === 'refund' && transaction.status === 'recorded')
     .reduce((total, transaction) => total + transaction.amount, 0);
+  const getUserPaid = (uid: string) => (data?.walletTransactions || [])
+    .filter(transaction => transaction.actorUid === uid && transaction.transactionType === 'fund' && transaction.status === 'recorded')
+    .reduce((total, transaction) => total + transaction.amount, 0);
   const getUserDisplay = (uid: string | null | undefined): PlatformUser | null => uid ? usersByUid.get(uid) || null : null;
+  const translateList = (values: string[]) => values.map(value => t(`taxonomy.${labelKey(value)}`, value)).join(', ');
 
   const stats = [
-    { label: 'Projects', value: data?.projects.length || 0, icon: <Briefcase /> },
-    { label: 'Listed professionals', value: data?.professionals.filter(item => item.status === 'listed').length || 0, icon: <ShieldCheck /> },
-    { label: 'Applications pending', value: data?.applications.filter(item => item.status === 'pending').length || 0, icon: <UserRoundCheck /> },
-    { label: 'Open remarks', value: openRemarks, icon: <MessageSquareText /> },
-    { label: 'Signed-in users', value: users.length, icon: <UsersRound /> },
-    { label: 'Wallet paid', value: formatCurrency(totalWalletPaid), icon: <Wallet /> },
+    { label: t('admin.stats.projects'), value: data?.projects.length || 0, icon: <Briefcase /> },
+    { label: t('admin.stats.listed'), value: data?.professionals.filter(item => item.status === 'listed').length || 0, icon: <ShieldCheck /> },
+    { label: t('admin.stats.pending'), value: data?.applications.filter(item => item.status === 'pending').length || 0, icon: <UserRoundCheck /> },
+    { label: t('admin.stats.remarks'), value: openRemarks, icon: <MessageSquareText /> },
+    { label: t('admin.stats.leads'), value: newContactLeads, icon: <MessageSquareText /> },
+    { label: t('admin.stats.users'), value: users.length, icon: <UsersRound /> },
+    { label: t('admin.stats.wallet'), value: formatCurrency(totalWalletPaid), icon: <Wallet /> },
   ];
 
   const serviceOptions = useMemo(() => Array.from(new Set((data?.professionals || []).flatMap(item => item.services))).slice(0, 10), [data?.professionals]);
@@ -95,17 +111,16 @@ const Admin = () => {
     setNotice(grihammCertified ? 'Grihamm certification badge enabled.' : 'Grihamm certification badge removed.');
   };
 
-  const assignContractor = async (projectId: string, contractorId: string) => {
-    if (!contractorId) return;
-    const nextData = await api.assignContractor(projectId, contractorId);
-    replaceData(nextData);
-    setNotice('Contractor assigned to project.');
-  };
-
   const updateAudit = async (id: string, status: string) => {
     const nextData = await api.updateAuditStatus(id, status);
     replaceData(nextData);
     setNotice('Audit status updated.');
+  };
+
+  const updateContactLead = async (id: string, status: ContactLead['status']) => {
+    const nextData = await api.updateContactLeadStatus(id, status);
+    replaceData(nextData);
+    setNotice('Contact query status updated.');
   };
 
   const addProfessional = async () => {
@@ -128,6 +143,14 @@ const Admin = () => {
       priceUnit: professionalForm.priceUnit,
       services: professionalForm.servicesText.split(',').map(item => item.trim()).filter(Boolean),
       serviceAreas: professionalForm.serviceAreasText.split(',').map(item => item.trim()).filter(Boolean),
+      businessAddress: professionalForm.businessAddress,
+      languages: professionalForm.languagesText.split(',').map(item => item.trim()).filter(Boolean),
+      teamSize: professionalForm.teamSize,
+      monthlyCapacity: professionalForm.monthlyCapacity,
+      materialBrands: professionalForm.materialBrandsText.split(',').map(item => item.trim()).filter(Boolean),
+      warrantyPolicy: professionalForm.warrantyPolicy,
+      referenceProjects: professionalForm.referenceProjectsText.split('\n').map(item => item.trim()).filter(Boolean),
+      insuranceCoverage: professionalForm.insuranceCoverage,
       portfolioImages: professionalForm.portfolioImagesText.split(',').map(item => item.trim()).filter(Boolean),
       bio: professionalForm.bio,
     });
@@ -146,6 +169,14 @@ const Admin = () => {
       priceUnit: 'per project',
       servicesText: '',
       serviceAreasText: '',
+      businessAddress: '',
+      languagesText: '',
+      teamSize: 0,
+      monthlyCapacity: '',
+      materialBrandsText: '',
+      warrantyPolicy: '',
+      referenceProjectsText: '',
+      insuranceCoverage: '',
       portfolioImagesText: '',
       bio: '',
     });
@@ -157,19 +188,20 @@ const Admin = () => {
       <div className="container">
         <div className="dashboard-header admin-header">
           <div>
-            <div className="dashboard-kicker">Admin operations</div>
-            <h1>Control quality, assignments, and audits.</h1>
-            <p>Review marketplace supply, approve applications, assign contractors, inspect project proof, and close audit loops from one operations console.</p>
+            <div className="dashboard-kicker">{t('admin.kicker')}</div>
+            <h1>{t('admin.title')}</h1>
+            <p>{t('admin.intro')}</p>
           </div>
           <div className="admin-tabs" role="tablist" aria-label="Admin sections">
             {[
-              ['projects', 'Projects'],
-              ['professionals', 'Professionals'],
-              ['applications', 'Applications'],
-              ['updates', 'Updates'],
-              ['audits', 'Audits'],
-              ['users', 'Users'],
-              ['wallet', 'Wallet'],
+              ['projects', t('admin.tabs.projects')],
+              ['professionals', t('admin.tabs.professionals')],
+              ['applications', t('admin.tabs.applications')],
+              ['updates', t('admin.tabs.updates')],
+              ['audits', t('admin.tabs.audits')],
+              ['leads', t('admin.tabs.leads')],
+              ['users', t('admin.tabs.users')],
+              ['wallet', t('admin.tabs.wallet')],
             ].map(([id, label]) => (
               <button key={id} type="button" onClick={() => setActiveTab(id as AdminTab)} className={activeTab === id ? 'active' : ''} aria-selected={activeTab === id}>{label}</button>
             ))}
@@ -194,10 +226,10 @@ const Admin = () => {
 
             {activeTab === 'projects' && (
               <section className="dashboard-panel admin-panel">
-                <h2>Projects</h2>
+                <h2>{t('admin.tabs.projects')}</h2>
                 <div className="dashboard-table-wrap">
                   <table className="dashboard-table">
-                    <thead><tr>{['Project', 'Customer', 'Team', 'Wallet', 'Progress', 'Assign contractor'].map(head => <th key={head}>{head}</th>)}</tr></thead>
+                    <thead><tr>{(t('admin.projectHeaders', { returnObjects: true }) as string[]).map(head => <th key={head}>{head}</th>)}</tr></thead>
                     <tbody>
                       {data.projects.map(project => {
                         const paid = getProjectPaid(project.id) || project.escrowAmount;
@@ -209,8 +241,14 @@ const Admin = () => {
                             <td><strong>{project.id}</strong><span>{project.homeType} - {project.city}</span></td>
                             <td>{project.customerName}<span>{getUserDisplay(project.customerUid)?.email || project.customerUid || 'No login linked'}</span></td>
                             <td>
-                              <span>Designer: {professionalsById.get(project.designerId || '')?.name || 'Not assigned'}</span>
-                              <span>Contractor: {professionalsById.get(project.contractorId || '')?.name || 'Not assigned'}</span>
+                              <span>{project.projectType || project.homeType}</span>
+                              <span>{translateList(project.requestedServices.length ? project.requestedServices : project.scope)}</span>
+                              <span>{project.areaSqft ? `${project.areaSqft} sq ft - ${project.areaType}` : 'Area pending'}</span>
+                              <span>{project.siteAddress || t('dashboard.siteAddressOptional')}</span>
+                              <span>{project.desiredStartDate || 'Start pending'}{project.targetHandoverDate ? ` - ${project.targetHandoverDate}` : ''}</span>
+                            </td>
+                            <td>
+                              <span>Contractor: {professionalsById.get(project.contractorId || '')?.name || 'Not selected by customer'}</span>
                             </td>
                             <td>
                               <strong>{formatCurrency(paid)}</strong>
@@ -218,10 +256,8 @@ const Admin = () => {
                             </td>
                             <td><strong>{project.progress}%</strong><span>{project.stage}</span></td>
                             <td>
-                              <select defaultValue={project.contractorId || ''} onChange={event => void assignContractor(project.id, event.target.value)} className="admin-input">
-                                <option value="">Choose contractor</option>
-                                {contractors.map(contractor => <option key={contractor.id} value={contractor.id}>{contractor.name}</option>)}
-                              </select>
+                              <strong>{professionalsById.get(project.contractorId || '')?.name || 'Not selected'}</strong>
+                              <span>Contractors are selected by customers during booking.</span>
                             </td>
                           </tr>
                         );
@@ -235,7 +271,7 @@ const Admin = () => {
             {activeTab === 'professionals' && (
               <div className="admin-supply-grid">
                 <section className="dashboard-panel admin-panel">
-                  <h2>Marketplace Supply</h2>
+                  <h2>{t('admin.marketplaceSupply')}</h2>
                   <div className="admin-row-list">
                     {data.professionals.map(pro => (
                       <div key={pro.id} className="dashboard-row-card admin-row-card">
@@ -244,7 +280,10 @@ const Admin = () => {
                           <span>{pro.type} - {pro.city} - {formatCurrency(pro.startingPrice)} {pro.priceUnit}</span>
                           <span>{pro.clientsServed} Grihamm clients - GSTIN {pro.gstin || 'not added'}</span>
                           <span>{pro.grihammCertified ? `Grihamm Certified - ${pro.academyCredential || 'Academy verified'}` : 'Grihamm certification not enabled'}</span>
-                          <span>{pro.services.join(', ')}</span>
+                          <span>{translateList(pro.services)}</span>
+                          <span>{pro.languages.length ? `${t('contractors.languages')}: ${pro.languages.join(', ')}` : ''}</span>
+                          <span>{pro.teamSize ? `${t('contractors.teamSize')}: ${pro.teamSize}` : ''}{pro.monthlyCapacity ? ` - ${pro.monthlyCapacity}` : ''}</span>
+                          <span>{pro.warrantyPolicy ? `${t('contractors.warranty')}: ${pro.warrantyPolicy}` : ''}</span>
                           {pro.portfolioImages.length > 0 && (
                             <span>{pro.portfolioImages.length} showcase image{pro.portfolioImages.length === 1 ? '' : 's'} uploaded</span>
                           )}
@@ -280,7 +319,7 @@ const Admin = () => {
                 </section>
 
                 <section className="dashboard-panel admin-panel">
-                  <h2>Add Professional</h2>
+                  <h2>{t('admin.addProfessional')}</h2>
                   <div className="admin-form-stack">
                     <input className="admin-input" placeholder="Name" value={professionalForm.name} onChange={event => setProfessionalForm(prev => ({ ...prev, name: event.target.value }))} />
                     <select className="admin-input" value={professionalForm.type} onChange={event => setProfessionalForm(prev => ({ ...prev, type: event.target.value as ProfessionalType }))}>
@@ -303,6 +342,14 @@ const Admin = () => {
                     <input className="admin-input" placeholder="Price unit" value={professionalForm.priceUnit} onChange={event => setProfessionalForm(prev => ({ ...prev, priceUnit: event.target.value }))} />
                     <input className="admin-input" placeholder={`Services${serviceOptions.length ? ` e.g. ${serviceOptions.slice(0, 2).join(', ')}` : ''}`} value={professionalForm.servicesText} onChange={event => setProfessionalForm(prev => ({ ...prev, servicesText: event.target.value }))} />
                     <input className="admin-input" placeholder="Service areas" value={professionalForm.serviceAreasText} onChange={event => setProfessionalForm(prev => ({ ...prev, serviceAreasText: event.target.value }))} />
+                    <input className="admin-input" placeholder="Business address / operating base" value={professionalForm.businessAddress} onChange={event => setProfessionalForm(prev => ({ ...prev, businessAddress: event.target.value }))} />
+                    <input className="admin-input" placeholder="Languages e.g. English, Kannada, Hindi" value={professionalForm.languagesText} onChange={event => setProfessionalForm(prev => ({ ...prev, languagesText: event.target.value }))} />
+                    <input className="admin-input" type="number" placeholder="Team size" value={professionalForm.teamSize} onChange={event => setProfessionalForm(prev => ({ ...prev, teamSize: Number(event.target.value) }))} />
+                    <input className="admin-input" placeholder="Monthly capacity" value={professionalForm.monthlyCapacity} onChange={event => setProfessionalForm(prev => ({ ...prev, monthlyCapacity: event.target.value }))} />
+                    <input className="admin-input" placeholder="Material brands" value={professionalForm.materialBrandsText} onChange={event => setProfessionalForm(prev => ({ ...prev, materialBrandsText: event.target.value }))} />
+                    <input className="admin-input" placeholder="Warranty / rework policy" value={professionalForm.warrantyPolicy} onChange={event => setProfessionalForm(prev => ({ ...prev, warrantyPolicy: event.target.value }))} />
+                    <textarea className="admin-input" placeholder="Reference projects, one per line" value={professionalForm.referenceProjectsText} onChange={event => setProfessionalForm(prev => ({ ...prev, referenceProjectsText: event.target.value }))} />
+                    <input className="admin-input" placeholder="Insurance / safety coverage" value={professionalForm.insuranceCoverage} onChange={event => setProfessionalForm(prev => ({ ...prev, insuranceCoverage: event.target.value }))} />
                     <textarea className="admin-input" placeholder="Past work image URLs, separated by comma" value={professionalForm.portfolioImagesText} onChange={event => setProfessionalForm(prev => ({ ...prev, portfolioImagesText: event.target.value }))} />
                     <textarea className="admin-input" placeholder="Bio" value={professionalForm.bio} onChange={event => setProfessionalForm(prev => ({ ...prev, bio: event.target.value }))} />
                     <button className="btn-primary" onClick={() => void addProfessional()}>Add & List</button>
@@ -313,15 +360,17 @@ const Admin = () => {
 
             {activeTab === 'applications' && (
               <section className="dashboard-panel admin-panel">
-                <h2>Applications</h2>
+                <h2>{t('admin.applications')}</h2>
                 <div className="admin-row-list">
                   {data.applications.map(application => (
                     <div key={application.id} className="dashboard-row-card admin-row-card">
                       <div>
                         <strong>{application.name}</strong>
                         <span>{application.type} - {application.city} - {application.experience}</span>
-                        <span>{application.services.join(', ')} - {formatCurrency(application.startingPrice)} {application.priceUnit}</span>
+                        <span>{translateList(application.services)} - {formatCurrency(application.startingPrice)} {application.priceUnit}</span>
                         <span>{application.clientsServed} Grihamm/similar clients - GSTIN {application.gstin || 'not provided'} - {application.portfolioImages.length} work image{application.portfolioImages.length === 1 ? '' : 's'}</span>
+                        <span>{application.languages.length ? `${t('contractors.languages')}: ${application.languages.join(', ')}` : ''}</span>
+                        <span>{application.teamSize ? `${t('contractors.teamSize')}: ${application.teamSize}` : ''}{application.monthlyCapacity ? ` - ${application.monthlyCapacity}` : ''}</span>
                         <span>{application.grihammCertified ? `Academy certificate: ${application.academyCredential || 'Claimed, verify before listing'}` : 'No Grihamm Academy certificate claimed'}</span>
                         <p className="admin-row-note">{application.summary}</p>
                       </div>
@@ -381,24 +430,74 @@ const Admin = () => {
 
             {activeTab === 'users' && (
               <section className="dashboard-panel admin-panel">
-                <h2>Signed-in users</h2>
+                <h2>{t('admin.signedInUsers')}</h2>
                 <div className="dashboard-table-wrap">
                   <table className="dashboard-table">
-                    <thead><tr>{['User', 'Role', 'Phone', 'Active project', 'Profile', 'Last updated'].map(head => <th key={head}>{head}</th>)}</tr></thead>
+                    <thead><tr>{(t('admin.usersHeaders', { returnObjects: true }) as string[]).map(head => <th key={head}>{head}</th>)}</tr></thead>
                     <tbody>
                       {users.length === 0 && (
                         <tr>
-                          <td colSpan={6}>No signed-in user profiles found.</td>
+                          <td colSpan={8}>No signed-in user profiles found.</td>
                         </tr>
                       )}
                       {users.map(user => (
                         <tr key={user.uid}>
                           <td><strong>{user.displayName}</strong><span>{user.email || user.uid}</span></td>
                           <td><strong>{user.role}</strong></td>
+                          <td>{user.preferredLanguage.toUpperCase()}</td>
                           <td>{user.phoneNumber || 'Not added'}</td>
                           <td>{user.activeProject || data.projects.find(project => project.customerUid === user.uid)?.id || 'None'}</td>
                           <td>{user.profileCompleted ? 'Completed' : 'Incomplete'}</td>
+                          <td>{formatCurrency(getUserPaid(user.uid))}</td>
                           <td>{user.updatedAt ? new Date(user.updatedAt).toLocaleString('en-IN') : 'Unknown'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </section>
+            )}
+
+            {activeTab === 'leads' && (
+              <section className="dashboard-panel admin-panel">
+                <h2>{t('admin.contactQueries')}</h2>
+                <div className="dashboard-table-wrap">
+                  <table className="dashboard-table">
+                    <thead><tr>{(t('admin.contactHeaders', { returnObjects: true }) as string[]).map(head => <th key={head}>{head}</th>)}</tr></thead>
+                    <tbody>
+                      {data.contactLeads.length === 0 && (
+                        <tr>
+                          <td colSpan={7}>No contact queries submitted yet.</td>
+                        </tr>
+                      )}
+                      {data.contactLeads.map(lead => (
+                        <tr key={lead.id}>
+                          <td>
+                            <strong>{lead.name}</strong>
+                            <span>{lead.city || 'City not provided'}</span>
+                          </td>
+                          <td>
+                            <strong>{lead.phone || 'No phone'}</strong>
+                            <span>{lead.email || 'No email'}</span>
+                          </td>
+                          <td>{lead.message}</td>
+                          <td>
+                            <strong>{lead.preferredLanguage.toUpperCase()}</strong>
+                            <span>{lead.source}</span>
+                          </td>
+                          <td>{lead.createdAt ? new Date(lead.createdAt).toLocaleString('en-IN') : 'Unknown'}</td>
+                          <td>
+                            <select
+                              className="admin-input"
+                              value={lead.status}
+                              onChange={event => void updateContactLead(lead.id, event.target.value as ContactLead['status'])}
+                            >
+                              <option value="new">New</option>
+                              <option value="contacted">Contacted</option>
+                              <option value="closed">Closed</option>
+                            </select>
+                          </td>
+                          <td><strong>{lead.id}</strong></td>
                         </tr>
                       ))}
                     </tbody>
@@ -409,10 +508,10 @@ const Admin = () => {
 
             {activeTab === 'wallet' && (
               <section className="dashboard-panel admin-panel">
-                <h2>Wallet payments</h2>
+                <h2>{t('admin.walletPayments')}</h2>
                 <div className="dashboard-table-wrap">
                   <table className="dashboard-table">
-                    <thead><tr>{['User', 'Project', 'Amount', 'Type', 'Gateway', 'Status', 'Recorded'].map(head => <th key={head}>{head}</th>)}</tr></thead>
+                    <thead><tr>{(t('admin.walletHeaders', { returnObjects: true }) as string[]).map(head => <th key={head}>{head}</th>)}</tr></thead>
                     <tbody>
                       {data.walletTransactions.length === 0 && (
                         <tr>

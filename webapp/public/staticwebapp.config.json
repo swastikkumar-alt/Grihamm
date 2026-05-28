@@ -3,6 +3,7 @@
     "rewrite": "/index.html",
     "exclude": [
       "/assets/*",
+      "/api/*",
       "/favicon.svg",
       "/hero-bg.png",
       "/logo.png",

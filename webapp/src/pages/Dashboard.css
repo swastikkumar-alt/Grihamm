@@ -12,6 +12,7 @@
   --dash-terracotta-dark: #a8482a;
   --dash-terracotta-soft: #e08a6e;
   --dash-gold: #d4a24c;
+  --dash-on-dark: #fbf6ee;
   --primary: var(--dash-terracotta);
   --primary-light: var(--dash-terracotta-soft);
   --primary-dark: var(--dash-terracotta-dark);
@@ -30,6 +31,29 @@
   background: var(--dash-cream);
   color: var(--text);
   font-family: var(--font-main);
+}
+
+body.dark-mode .dashboard-shell {
+  --dash-cream: #101411;
+  --dash-paper: #171d19;
+  --dash-ink: #f4efe5;
+  --dash-muted: #b6ad9d;
+  --dash-line: rgba(232, 218, 190, 0.16);
+  --dash-teal: #2e6760;
+  --dash-teal-deep: #123f37;
+  --dash-terracotta: #df7351;
+  --dash-terracotta-dark: #c75b39;
+  --dash-terracotta-soft: #f0a58d;
+  --dash-gold: #e0ba68;
+  --background: var(--dash-cream);
+  --surface: #171b18;
+  --surface-alt: #1e251f;
+  --text: var(--dash-ink);
+  --text-muted: var(--dash-muted);
+  --glass: rgba(16, 20, 17, 0.94);
+  --glass-border: var(--dash-line);
+  --shadow: 0 16px 48px rgba(0, 0, 0, 0.28);
+  --shadow-lg: 0 24px 70px rgba(0, 0, 0, 0.42);
 }
 
 .dashboard-layout,
@@ -69,6 +93,17 @@
   font-weight: 500;
 }
 
+body.dark-mode .dashboard-header h1,
+body.dark-mode .dashboard-booked-summary strong,
+body.dark-mode .project-intent-grid strong,
+body.dark-mode .admin-stat-card strong,
+body.dark-mode .admin-panel h2,
+body.dark-mode .admin-row-card > div:first-child > strong,
+body.dark-mode .admin-row-card > div:nth-child(2) > strong,
+body.dark-mode .admin-watch-grid strong {
+  color: var(--dash-ink);
+}
+
 .dashboard-header p,
 .dashboard-card p {
   color: var(--text-muted);
@@ -92,7 +127,7 @@
   padding: 0.9rem 1rem;
   border: 1px solid var(--dash-line);
   border-radius: var(--radius);
-  background: #ffffff;
+  background: var(--surface);
 }
 
 .dashboard-booked-summary span {
@@ -230,14 +265,14 @@
 .job-list button.active {
   border-color: var(--dash-teal-deep);
   background: var(--dash-teal-deep);
-  color: var(--dash-cream);
+  color: var(--dash-on-dark);
 }
 
 body.dark-mode .profile-tabs button.active,
 body.dark-mode .job-list button.active {
   border-color: var(--dash-teal-deep);
   background: var(--dash-teal-deep);
-  color: var(--dash-cream);
+  color: var(--dash-on-dark);
 }
 
 .profile-grid,
@@ -301,6 +336,36 @@ body.dark-mode .job-list button.active {
   height: 100%;
   border-radius: inherit;
   background: var(--dash-terracotta);
+}
+
+.project-intent-grid {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 0.7rem;
+}
+
+.project-intent-grid div {
+  display: grid;
+  gap: 0.25rem;
+  padding: 0.8rem;
+  border: 1px solid var(--dash-line);
+  border-radius: var(--radius-sm);
+  background: var(--dash-cream);
+}
+
+.project-intent-grid span {
+  color: var(--text-muted);
+  font-size: 0.68rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.project-intent-grid strong {
+  color: var(--dash-teal-deep);
+  font-size: 0.88rem;
+  line-height: 1.35;
 }
 
 .dashboard-section-head {
@@ -407,7 +472,7 @@ body.dark-mode .job-list button.active {
   padding: 1rem;
   border-radius: var(--radius-sm);
   background: var(--dash-teal-deep);
-  color: var(--dash-cream);
+  color: var(--dash-on-dark);
 }
 
 .booked-contractor-focus span {
@@ -490,12 +555,12 @@ body.dark-mode .booked-partner-avatar {
   padding: 1.2rem;
   border-radius: var(--radius-sm);
   background: var(--dash-teal-deep);
-  color: var(--dash-cream);
+  color: var(--dash-on-dark);
 }
 
 body.dark-mode .wallet-hero-row {
   background: var(--dash-teal-deep);
-  color: var(--dash-cream);
+  color: var(--dash-on-dark);
 }
 
 .wallet-hero-row h2 {
@@ -865,7 +930,7 @@ body.dark-mode .profile-picture {
 .dashboard-shell .btn-outline {
   border-color: var(--dash-line);
   border-radius: var(--radius-sm);
-  background: #ffffff;
+  background: var(--surface);
   color: var(--text);
 }
 
@@ -914,7 +979,7 @@ body.dark-mode .profile-picture {
 .dashboard-shell .admin-tabs button[aria-selected="true"] {
   border-color: var(--dash-teal-deep) !important;
   background: var(--dash-teal-deep) !important;
-  color: var(--dash-cream) !important;
+  color: var(--dash-on-dark) !important;
 }
 
 .admin-stat-grid {
@@ -930,7 +995,7 @@ body.dark-mode .profile-picture {
   padding: 1.1rem;
   border: 1px solid var(--dash-line);
   border-radius: var(--radius);
-  background: #ffffff;
+  background: var(--surface);
 }
 
 .admin-stat-card div {
@@ -1019,7 +1084,7 @@ body.dark-mode .profile-picture {
   padding: 0.78rem 0.85rem;
   border: 1px solid var(--dash-line);
   border-radius: var(--radius-sm);
-  background: #ffffff;
+  background: var(--surface);
   color: var(--text);
   outline: none;
 }

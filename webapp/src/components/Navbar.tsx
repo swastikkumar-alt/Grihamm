@@ -2,14 +2,17 @@ import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronDown, LayoutDashboard, LogOut, Moon, Settings, Sun, Wallet } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../contexts/AuthContext';
 import { formatCurrency } from '../lib/api';
 import { useGrihammData } from '../lib/useGrihammData';
 import AuthModal from './AuthModal';
+import LanguageSelect from './LanguageSelect';
 
 const Navbar = ({ isDark, toggleTheme }: { isDark: boolean; toggleTheme: () => void }) => {
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const { t } = useTranslation();
   const { currentUser, userProfile, logout } = useAuth();
   const { data } = useGrihammData();
   const menuRef = useRef<HTMLDivElement>(null);
@@ -39,10 +42,10 @@ const Navbar = ({ isDark, toggleTheme }: { isDark: boolean; toggleTheme: () => v
 
   const canOpenProfileSettings = userProfile?.role === 'homeowner' || userProfile?.role === 'admin';
   const dashboardLabel = userProfile?.role === 'admin'
-    ? 'Admin Panel'
+    ? t('nav.adminPanel')
     : userProfile?.role === 'contractor' || userProfile?.role === 'designer'
-      ? 'Professional OS'
-      : 'Dashboard';
+      ? t('nav.professionalOS')
+      : t('nav.dashboard');
 
   const dashboardPath = userProfile?.role === 'admin'
     ? '/admin'
@@ -52,6 +55,8 @@ const Navbar = ({ isDark, toggleTheme }: { isDark: boolean; toggleTheme: () => v
   const walletPath = userProfile?.role === 'contractor' || userProfile?.role === 'designer'
     ? '/contractor-os'
     : '/track-project';
+  const avatarUrl = userProfile?.photoURL || currentUser?.photoURL || '';
+  const avatarInitial = userProfile?.displayName?.[0] || currentUser?.displayName?.[0] || currentUser?.email?.[0] || 'U';
 
   const getRoleClass = () => {
     if (userProfile?.role === 'admin') return 'admin';
@@ -76,9 +81,12 @@ const Navbar = ({ isDark, toggleTheme }: { isDark: boolean; toggleTheme: () => v
           </div>
         </Link>
 
-        <div className="site-nav-links" aria-hidden="true" />
+        <div className="site-nav-links">
+          <Link className="nav-link" to="/about">{t('nav.about')}</Link>
+        </div>
 
         <div className="site-nav-controls">
+          <Link className="nav-about-compact" to="/about">{t('nav.about')}</Link>
           <button
             onClick={toggleTheme}
             title={isDark ? 'Switch to light' : 'Switch to dark'}
@@ -91,12 +99,12 @@ const Navbar = ({ isDark, toggleTheme }: { isDark: boolean; toggleTheme: () => v
 
           {currentUser ? (
             <>
-            <Link to={walletPath} className="nav-wallet" aria-label="Open escrow wallet">
+            <Link to={walletPath} className="nav-wallet" aria-label={t('common.wallet')}>
               <Wallet size={16} />
               <span className="nav-wallet-popover">
                 <strong>{formatCurrency(escrowBalance)}</strong>
-                <small>Escrow balance across your active projects.</small>
-                <em>Open dashboard to add funds or review milestone releases.</em>
+                <small>{t('nav.walletHint')}</small>
+                <em>{t('nav.walletOpen')}</em>
               </span>
             </Link>
             <div ref={menuRef} style={{ position: 'relative' }}>
@@ -105,11 +113,11 @@ const Navbar = ({ isDark, toggleTheme }: { isDark: boolean; toggleTheme: () => v
                 onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
                 className="nav-user-trigger"
               >
-                {currentUser.photoURL ? (
-                  <img src={currentUser.photoURL} alt="Avatar" className="nav-user-avatar" referrerPolicy="no-referrer" />
+                {avatarUrl ? (
+                  <img src={avatarUrl} alt="Avatar" className="nav-user-avatar" referrerPolicy="no-referrer" />
                 ) : (
                   <div className="nav-user-avatar-fallback">
-                    {currentUser.displayName?.[0] || currentUser.email?.[0] || 'U'}
+                    {avatarInitial}
                   </div>
                 )}
                 <span className="nav-user-name">
@@ -136,7 +144,7 @@ const Navbar = ({ isDark, toggleTheme }: { isDark: boolean; toggleTheme: () => v
                     transition={{ duration: 0.15 }}
                   >
                     <div className="nav-menu-header">
-                      <div className="nav-menu-signed-label">Signed in as</div>
+                      <div className="nav-menu-signed-label">{t('nav.signedInAs')}</div>
                       <div className="nav-menu-email">{currentUser.email}</div>
                       <span className={`nav-menu-role ${getRoleClass()}`}>
                         {userProfile?.role || 'homeowner'}
@@ -144,10 +152,12 @@ const Navbar = ({ isDark, toggleTheme }: { isDark: boolean; toggleTheme: () => v
                     </div>
 
                     <div className="nav-menu-divider" />
-
+                    <div className="nav-menu-language">
+                      <LanguageSelect />
+                    </div>
                     {canOpenProfileSettings && (
                       <Link to="/track-project?tab=settings" onClick={() => setIsUserMenuOpen(false)} className="nav-menu-item">
-                        <Settings size={15} /> Profile Settings
+                        <Settings size={15} /> {t('nav.profileSettings')}
                       </Link>
                     )}
                     <Link to={dashboardPath} onClick={() => setIsUserMenuOpen(false)} className="nav-menu-item">
@@ -160,7 +170,7 @@ const Navbar = ({ isDark, toggleTheme }: { isDark: boolean; toggleTheme: () => v
                       onClick={() => { logout(); setIsUserMenuOpen(false); }}
                       className="nav-menu-item danger"
                     >
-                      <LogOut size={15} /> Sign Out
+                      <LogOut size={15} /> {t('nav.signOut')}
                     </button>
                   </motion.div>
                 )}
@@ -173,7 +183,7 @@ const Navbar = ({ isDark, toggleTheme }: { isDark: boolean; toggleTheme: () => v
               className="nav-login-btn"
               onClick={() => setIsAuthModalOpen(true)}
             >
-              Login
+              {t('nav.login')}
             </button>
           )}
 
@@ -182,7 +192,7 @@ const Navbar = ({ isDark, toggleTheme }: { isDark: boolean; toggleTheme: () => v
             onClick={handleConsult}
             className="btn-primary"
           >
-            Consult
+            {t('nav.consult')}
           </button>
         </div>
         </div>

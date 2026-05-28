@@ -18,6 +18,14 @@ export interface Professional {
   priceUnit: string;
   services: string[];
   serviceAreas: string[];
+  businessAddress: string;
+  languages: string[];
+  teamSize: number;
+  monthlyCapacity: string;
+  materialBrands: string[];
+  warrantyPolicy: string;
+  referenceProjects: string[];
+  insuranceCoverage: string;
   clientsServed: number;
   gstin: string;
   grihammCertified: boolean;
@@ -42,6 +50,14 @@ export interface ProfessionalApplication {
   paymentTerms: string;
   services: string[];
   serviceAreas: string[];
+  businessAddress: string;
+  languages: string[];
+  teamSize: number;
+  monthlyCapacity: string;
+  materialBrands: string[];
+  warrantyPolicy: string;
+  referenceProjects: string[];
+  insuranceCoverage: string;
   clientsServed: number;
   gstin: string;
   grihammCertified: boolean;
@@ -60,8 +76,19 @@ export interface Project {
   customerName: string;
   city: string;
   homeType: string;
+  projectType: string;
+  propertySubtype: string;
+  areaType: string;
+  areaSqft: number;
   scope: string[];
+  requestedServices: string[];
   budget: number;
+  budgetMin: number;
+  budgetMax: number;
+  siteAddress: string;
+  visitPreference: string;
+  preferredLanguage: string;
+  briefNotes: string;
   stage: string;
   progress: number;
   desiredStartDate: string;
@@ -143,7 +170,32 @@ export interface PlatformUser {
   role: 'homeowner' | 'contractor' | 'designer' | 'admin';
   phoneNumber: string;
   activeProject: string;
+  preferredLanguage: string;
   profileCompleted: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ContactLeadInput {
+  name: string;
+  phone: string;
+  email: string;
+  city: string;
+  message: string;
+  source?: string;
+  preferredLanguage?: string;
+}
+
+export interface ContactLead {
+  id: string;
+  name: string;
+  phone: string;
+  email: string;
+  city: string;
+  message: string;
+  source: string;
+  preferredLanguage: string;
+  status: 'new' | 'contacted' | 'closed';
   createdAt: string;
   updatedAt: string;
 }
@@ -158,6 +210,7 @@ export interface BootstrapData {
   projectFiles: ProjectFile[];
   walletTransactions: WalletTransaction[];
   users: PlatformUser[];
+  contactLeads: ContactLead[];
   auditPrice: number;
 }
 
@@ -165,7 +218,7 @@ export type ApplicationInput = Omit<ProfessionalApplication, 'id' | 'status' | '
   applicantUid?: string | null;
 };
 
-export type ProfessionalInput = Pick<Professional, 'name' | 'type' | 'city' | 'phone' | 'startingPrice' | 'priceUnit' | 'services' | 'serviceAreas' | 'bio' | 'gstin' | 'grihammCertified' | 'academyCredential' | 'portfolioImages'> & {
+export type ProfessionalInput = Pick<Professional, 'name' | 'type' | 'city' | 'phone' | 'startingPrice' | 'priceUnit' | 'services' | 'serviceAreas' | 'businessAddress' | 'languages' | 'teamSize' | 'monthlyCapacity' | 'materialBrands' | 'warrantyPolicy' | 'referenceProjects' | 'insuranceCoverage' | 'bio' | 'gstin' | 'grihammCertified' | 'academyCredential' | 'portfolioImages'> & {
   experienceYears: number;
   clientsServed: number;
 };
@@ -178,6 +231,17 @@ export type ProjectInput = Pick<Project, 'customerName' | 'city' | 'homeType' | 
   customerUid?: string | null;
   designerId?: string | null;
   contractorId?: string | null;
+  projectType?: string;
+  propertySubtype?: string;
+  areaType?: string;
+  areaSqft?: number;
+  budgetMin?: number;
+  budgetMax?: number;
+  requestedServices?: string[];
+  siteAddress?: string;
+  visitPreference?: string;
+  preferredLanguage?: string;
+  briefNotes?: string;
   desiredStartDate?: string;
   targetHandoverDate?: string;
   timelineNote?: string;
@@ -202,6 +266,14 @@ type ProfessionalRow = {
   price_unit: string | null;
   services: string[] | null;
   service_areas: string[] | null;
+  business_address?: string | null;
+  languages?: string[] | null;
+  team_size?: number | null;
+  monthly_capacity?: string | null;
+  material_brands?: string[] | null;
+  warranty_policy?: string | null;
+  reference_projects?: string[] | null;
+  insurance_coverage?: string | null;
   clients_served: number | null;
   gstin: string | null;
   grihamm_certified: boolean | null;
@@ -226,6 +298,14 @@ type ApplicationRow = {
   payment_terms: string | null;
   services: string[] | null;
   service_areas: string[] | null;
+  business_address?: string | null;
+  languages?: string[] | null;
+  team_size?: number | null;
+  monthly_capacity?: string | null;
+  material_brands?: string[] | null;
+  warranty_policy?: string | null;
+  reference_projects?: string[] | null;
+  insurance_coverage?: string | null;
   clients_served: number | null;
   gstin: string | null;
   grihamm_certified: boolean | null;
@@ -244,8 +324,19 @@ type ProjectRow = {
   customer_name: string;
   city: string;
   home_type: string;
+  project_type?: string | null;
+  property_subtype?: string | null;
+  area_type?: string | null;
+  area_sqft?: number | null;
   scope: string[] | null;
+  requested_services?: string[] | null;
   budget: number | null;
+  budget_min?: number | null;
+  budget_max?: number | null;
+  site_address?: string | null;
+  visit_preference?: string | null;
+  preferred_language?: string | null;
+  brief_notes?: string | null;
   stage: string | null;
   progress: number | null;
   desired_start_date?: string | null;
@@ -326,7 +417,22 @@ type UserProfileRow = {
   role: PlatformUser['role'] | null;
   phone_number: string | null;
   active_project: string | null;
+  preferred_language?: string | null;
   profile_completed: boolean | null;
+  created_at: string | null;
+  updated_at: string | null;
+};
+
+type ContactLeadRow = {
+  id: string;
+  name: string | null;
+  phone: string | null;
+  email: string | null;
+  city: string | null;
+  message: string | null;
+  source: string | null;
+  preferred_language: string | null;
+  status: ContactLead['status'] | null;
   created_at: string | null;
   updated_at: string | null;
 };
@@ -362,6 +468,14 @@ const professionalRow = (row: ProfessionalRow): Professional => ({
   priceUnit: row.price_unit || 'per project',
   services: toArray(row.services),
   serviceAreas: toArray(row.service_areas),
+  businessAddress: row.business_address || '',
+  languages: toArray(row.languages),
+  teamSize: row.team_size ?? 0,
+  monthlyCapacity: row.monthly_capacity || '',
+  materialBrands: toArray(row.material_brands),
+  warrantyPolicy: row.warranty_policy || '',
+  referenceProjects: toArray(row.reference_projects),
+  insuranceCoverage: row.insurance_coverage || '',
   clientsServed: row.clients_served ?? 0,
   gstin: row.gstin || '',
   grihammCertified: Boolean(row.grihamm_certified),
@@ -386,6 +500,14 @@ const applicationRow = (row: ApplicationRow): ProfessionalApplication => ({
   paymentTerms: row.payment_terms || '',
   services: toArray(row.services),
   serviceAreas: toArray(row.service_areas),
+  businessAddress: row.business_address || '',
+  languages: toArray(row.languages),
+  teamSize: row.team_size ?? 0,
+  monthlyCapacity: row.monthly_capacity || '',
+  materialBrands: toArray(row.material_brands),
+  warrantyPolicy: row.warranty_policy || '',
+  referenceProjects: toArray(row.reference_projects),
+  insuranceCoverage: row.insurance_coverage || '',
   clientsServed: row.clients_served ?? 0,
   gstin: row.gstin || '',
   grihammCertified: Boolean(row.grihamm_certified),
@@ -404,8 +526,19 @@ const projectRow = (row: ProjectRow): Project => ({
   customerName: row.customer_name,
   city: row.city,
   homeType: row.home_type,
+  projectType: row.project_type || row.home_type.split(' - ')[0] || '',
+  propertySubtype: row.property_subtype || row.home_type.split(' - ').slice(1).join(' - ') || '',
+  areaType: row.area_type || '',
+  areaSqft: row.area_sqft ?? 0,
   scope: toArray(row.scope),
+  requestedServices: toArray(row.requested_services),
   budget: row.budget ?? 0,
+  budgetMin: row.budget_min ?? 0,
+  budgetMax: row.budget_max ?? row.budget ?? 0,
+  siteAddress: row.site_address || '',
+  visitPreference: row.visit_preference || '',
+  preferredLanguage: row.preferred_language || 'en',
+  briefNotes: row.brief_notes || '',
   stage: row.stage || 'planning',
   progress: row.progress ?? 0,
   desiredStartDate: row.desired_start_date || '',
@@ -548,7 +681,22 @@ const userProfileRow = (row: UserProfileRow): PlatformUser => ({
   role: row.role || 'homeowner',
   phoneNumber: row.phone_number || '',
   activeProject: row.active_project || '',
+  preferredLanguage: row.preferred_language || 'en',
   profileCompleted: Boolean(row.profile_completed),
+  createdAt: row.created_at || '',
+  updatedAt: row.updated_at || row.created_at || '',
+});
+
+const contactLeadRow = (row: ContactLeadRow): ContactLead => ({
+  id: row.id,
+  name: row.name || 'Unnamed lead',
+  phone: row.phone || '',
+  email: row.email || '',
+  city: row.city || '',
+  message: row.message || '',
+  source: row.source || 'contact_bot',
+  preferredLanguage: row.preferred_language || 'en',
+  status: row.status || 'new',
   createdAt: row.created_at || '',
   updatedAt: row.updated_at || row.created_at || '',
 });
@@ -578,6 +726,7 @@ export const api = {
         projectFiles: [],
         walletTransactions: [],
         users: [],
+        contactLeads: [],
         auditPrice: AUDIT_PRICE,
       };
     }
@@ -591,6 +740,7 @@ export const api = {
       projectFilesResult,
       walletTransactionsResult,
       userProfilesResult,
+      contactLeadsResult,
     ] = await Promise.all([
       isAdmin
         ? database.from('applications').select('*').order('created_at', { ascending: false })
@@ -604,12 +754,18 @@ export const api = {
       isAdmin
         ? database.from('user_profiles').select('*').order('updated_at', { ascending: false })
         : Promise.resolve({ data: [], error: null }),
+      isAdmin
+        ? database.from('contact_leads').select('*').order('created_at', { ascending: false })
+        : Promise.resolve({ data: [], error: null }),
     ]);
 
     const walletTableMissing = walletTransactionsResult.error
       && /wallet_transactions|schema cache|does not exist|could not find/i.test(walletTransactionsResult.error.message);
+    const contactLeadsTableMissing = contactLeadsResult.error
+      && /contact_leads|schema cache|does not exist|could not find/i.test(contactLeadsResult.error.message);
     [applicationsResult.error, projectsResult.error, siteUpdatesResult.error, remarksResult.error, auditRequestsResult.error, projectFilesResult.error, userProfilesResult.error].forEach(assertOk);
     if (!walletTableMissing) assertOk(walletTransactionsResult.error);
+    if (!contactLeadsTableMissing) assertOk(contactLeadsResult.error);
 
     const professionals = ((professionalsResult.data || []) as ProfessionalRow[])
       .map(professionalRow)
@@ -640,6 +796,7 @@ export const api = {
       projectFiles,
       walletTransactions: walletTableMissing ? [] : ((walletTransactionsResult.data || []) as WalletTransactionRow[]).map(walletTransactionRow),
       users: isAdmin ? ((userProfilesResult.data || []) as UserProfileRow[]).map(userProfileRow) : [],
+      contactLeads: contactLeadsTableMissing ? [] : ((contactLeadsResult.data || []) as ContactLeadRow[]).map(contactLeadRow),
       auditPrice: AUDIT_PRICE,
     };
   },
@@ -660,6 +817,14 @@ export const api = {
       payment_terms: body.paymentTerms || '',
       services: body.services || [],
       service_areas: body.serviceAreas || [],
+      business_address: body.businessAddress || '',
+      languages: body.languages || [],
+      team_size: Number(body.teamSize || 0),
+      monthly_capacity: body.monthlyCapacity || '',
+      material_brands: body.materialBrands || [],
+      warranty_policy: body.warrantyPolicy || '',
+      reference_projects: body.referenceProjects || [],
+      insurance_coverage: body.insuranceCoverage || '',
       clients_served: Number(body.clientsServed || 0),
       gstin: body.gstin || '',
       grihamm_certified: Boolean(body.grihammCertified),
@@ -702,6 +867,14 @@ export const api = {
         price_unit: application.price_unit || 'per project',
         services: toArray(application.services),
         service_areas: toArray(application.service_areas),
+        business_address: application.business_address || '',
+        languages: toArray(application.languages),
+        team_size: application.team_size ?? 0,
+        monthly_capacity: application.monthly_capacity || '',
+        material_brands: toArray(application.material_brands),
+        warranty_policy: application.warranty_policy || '',
+        reference_projects: toArray(application.reference_projects),
+        insurance_coverage: application.insurance_coverage || '',
         clients_served: application.clients_served ?? 0,
         gstin: application.gstin || '',
         grihamm_certified: Boolean(application.grihamm_certified),
@@ -744,6 +917,14 @@ export const api = {
       price_unit: body.priceUnit || 'per project',
       services: body.services || [],
       service_areas: body.serviceAreas || [],
+      business_address: body.businessAddress || '',
+      languages: body.languages || [],
+      team_size: Number(body.teamSize || 0),
+      monthly_capacity: body.monthlyCapacity || '',
+      material_brands: body.materialBrands || [],
+      warranty_policy: body.warrantyPolicy || '',
+      reference_projects: body.referenceProjects || [],
+      insurance_coverage: body.insuranceCoverage || '',
       clients_served: Number(body.clientsServed || 0),
       gstin: body.gstin || '',
       grihamm_certified: Boolean(body.grihammCertified),
@@ -759,6 +940,21 @@ export const api = {
 
   createProject: async (body: ProjectInput) => {
     const database = getSupabaseClient();
+    if (!body.contractorId) {
+      throw new Error('Choose a contractor before creating a booking.');
+    }
+
+    const contractorResult = await database
+      .from('professionals')
+      .select('id,type,status')
+      .eq('id', body.contractorId)
+      .maybeSingle();
+    assertOk(contractorResult.error);
+    const selectedContractor = contractorResult.data as Pick<ProfessionalRow, 'id' | 'type' | 'status'> | null;
+    if (!selectedContractor || selectedContractor.type !== 'Contractor' || selectedContractor.status !== 'listed') {
+      throw new Error('Customers can only book listed contractors.');
+    }
+
     const legacyPayload = {
       id: createId('GR'),
       customer_uid: body.customerUid || null,
@@ -769,20 +965,31 @@ export const api = {
       budget: Number(body.budget || 0),
       stage: 'Booking requested',
       progress: 5,
-      designer_id: body.designerId || null,
-      contractor_id: body.contractorId || null,
+      designer_id: null,
+      contractor_id: body.contractorId,
       escrow_amount: 0,
-      next_action: 'Grihamm operations will verify scope and assign the delivery team.',
+      next_action: 'Grihamm operations will verify the customer-selected contractor booking and project brief.',
       created_at: nowIso(),
     };
-    const scheduledPayload = {
+    const structuredPayload = {
       ...legacyPayload,
+      project_type: body.projectType || '',
+      property_subtype: body.propertySubtype || '',
+      area_type: body.areaType || '',
+      area_sqft: Number(body.areaSqft || 0),
+      requested_services: body.requestedServices || [],
+      budget_min: Number(body.budgetMin || 0),
+      budget_max: Number(body.budgetMax || body.budget || 0),
+      site_address: body.siteAddress || '',
+      visit_preference: body.visitPreference || '',
+      preferred_language: body.preferredLanguage || 'en',
+      brief_notes: body.briefNotes || '',
       desired_start_date: body.desiredStartDate || null,
       target_handover_date: body.targetHandoverDate || null,
       timeline_note: body.timelineNote || '',
     };
-    const { error } = await database.from('projects').insert(scheduledPayload);
-    if (error && /desired_start_date|target_handover_date|timeline_note|schema cache/i.test(error.message)) {
+    const { error } = await database.from('projects').insert(structuredPayload);
+    if (error && /desired_start_date|target_handover_date|timeline_note|project_type|property_subtype|requested_services|schema cache/i.test(error.message)) {
       const retry = await database.from('projects').insert(legacyPayload);
       assertOk(retry.error);
     } else {
@@ -958,23 +1165,36 @@ export const api = {
     return api.bootstrap({ role: 'admin' });
   },
 
-  assignContractor: async (projectId: string, contractorId: string) => {
-    const database = getSupabaseClient();
-    const { error } = await database
-      .from('projects')
-      .update({
-        contractor_id: contractorId,
-        stage: 'Professional assigned',
-        next_action: 'Assigned professional should submit the next site update.',
-      })
-      .eq('id', projectId);
-    assertOk(error);
-    return api.bootstrap({ role: 'admin' });
-  },
-
   uploadProjectFile: async (body: { projectId: string; ownerUid: string; purpose: ProjectFile['purpose']; file: File }) => {
     await uploadProofFile(body);
     return api.bootstrap({ uid: body.ownerUid });
+  },
+
+  createContactLead: async (body: ContactLeadInput) => {
+    const database = getSupabaseClient();
+    const { error } = await database.from('contact_leads').insert({
+      id: createId('LEAD'),
+      name: body.name.trim(),
+      phone: body.phone.trim(),
+      email: body.email.trim(),
+      city: body.city.trim(),
+      message: body.message.trim(),
+      source: body.source || 'contact_bot',
+      preferred_language: body.preferredLanguage || 'en',
+      status: 'new',
+      created_at: nowIso(),
+    });
+    assertOk(error);
+  },
+
+  updateContactLeadStatus: async (id: string, status: ContactLead['status']) => {
+    const database = getSupabaseClient();
+    const { error } = await database
+      .from('contact_leads')
+      .update({ status })
+      .eq('id', id);
+    assertOk(error);
+    return api.bootstrap({ role: 'admin' });
   },
 };
 
