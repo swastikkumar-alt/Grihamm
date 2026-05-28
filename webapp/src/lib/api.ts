@@ -8,6 +8,7 @@ export interface Professional {
   id: string;
   name: string;
   type: ProfessionalType;
+  partnerUid: string | null;
   city: string;
   phone: string;
   rating: number;
@@ -29,6 +30,7 @@ export interface Professional {
 
 export interface ProfessionalApplication {
   id: string;
+  applicantUid: string | null;
   name: string;
   type: ProfessionalType;
   city: string;
@@ -54,6 +56,7 @@ export interface ProfessionalApplication {
 
 export interface Project {
   id: string;
+  customerUid: string | null;
   customerName: string;
   city: string;
   homeType: string;
@@ -61,6 +64,9 @@ export interface Project {
   budget: number;
   stage: string;
   progress: number;
+  desiredStartDate: string;
+  targetHandoverDate: string;
+  timelineNote: string;
   designerId: string | null;
   contractorId: string | null;
   escrowAmount: number;
@@ -102,6 +108,34 @@ export interface AuditRequest {
   createdAt: string;
 }
 
+export interface ProjectFile {
+  id: string;
+  projectId: string;
+  updateId: string | null;
+  ownerUid: string;
+  bucket: string;
+  filePath: string;
+  signedUrl: string;
+  fileName: string;
+  fileType: string;
+  fileSize: number;
+  purpose: 'brief' | 'progress' | 'portfolio' | 'audit';
+  createdAt: string;
+}
+
+export interface WalletTransaction {
+  id: string;
+  projectId: string;
+  actorUid: string;
+  amount: number;
+  transactionType: 'fund' | 'release' | 'refund';
+  status: 'recorded' | 'pending' | 'failed';
+  provider: string;
+  providerReference: string;
+  note: string;
+  createdAt: string;
+}
+
 export interface BootstrapData {
   professionals: Professional[];
   applications: ProfessionalApplication[];
@@ -109,26 +143,43 @@ export interface BootstrapData {
   siteUpdates: SiteUpdate[];
   remarks: Remark[];
   auditRequests: AuditRequest[];
+  projectFiles: ProjectFile[];
+  walletTransactions: WalletTransaction[];
   auditPrice: number;
 }
 
-export type ApplicationInput = Omit<ProfessionalApplication, 'id' | 'status' | 'createdAt'>;
+export type ApplicationInput = Omit<ProfessionalApplication, 'id' | 'status' | 'createdAt' | 'applicantUid'> & {
+  applicantUid?: string | null;
+};
 
 export type ProfessionalInput = Pick<Professional, 'name' | 'type' | 'city' | 'phone' | 'startingPrice' | 'priceUnit' | 'services' | 'serviceAreas' | 'bio' | 'gstin' | 'grihammCertified' | 'academyCredential' | 'portfolioImages'> & {
   experienceYears: number;
   clientsServed: number;
 };
 
-export type SiteUpdateInput = Pick<SiteUpdate, 'projectId' | 'professionalId' | 'title' | 'summary' | 'completed' | 'images' | 'nextStep'>;
+export type SiteUpdateInput = Pick<SiteUpdate, 'projectId' | 'professionalId' | 'title' | 'summary' | 'completed' | 'images' | 'nextStep'> & {
+  actorUid?: string | null;
+  files?: File[];
+};
 export type ProjectInput = Pick<Project, 'customerName' | 'city' | 'homeType' | 'scope' | 'budget'> & {
+  customerUid?: string | null;
   designerId?: string | null;
   contractorId?: string | null;
+  desiredStartDate?: string;
+  targetHandoverDate?: string;
+  timelineNote?: string;
 };
+
+export interface DataScope {
+  uid?: string | null;
+  role?: 'homeowner' | 'contractor' | 'designer' | 'admin' | null;
+}
 
 type ProfessionalRow = {
   id: string;
   name: string;
   type: ProfessionalType;
+  partner_uid?: string | null;
   city: string;
   phone: string;
   rating: number | null;
@@ -150,6 +201,7 @@ type ProfessionalRow = {
 
 type ApplicationRow = {
   id: string;
+  applicant_uid?: string | null;
   name: string;
   type: ProfessionalType;
   city: string;
@@ -175,6 +227,7 @@ type ApplicationRow = {
 
 type ProjectRow = {
   id: string;
+  customer_uid?: string | null;
   customer_name: string;
   city: string;
   home_type: string;
@@ -182,6 +235,9 @@ type ProjectRow = {
   budget: number | null;
   stage: string | null;
   progress: number | null;
+  desired_start_date?: string | null;
+  target_handover_date?: string | null;
+  timeline_note?: string | null;
   designer_id: string | null;
   contractor_id: string | null;
   escrow_amount: number | null;
@@ -223,6 +279,33 @@ type AuditRequestRow = {
   created_at: string;
 };
 
+type ProjectFileRow = {
+  id: string;
+  project_id: string;
+  update_id?: string | null;
+  owner_uid: string;
+  bucket: string;
+  file_path: string;
+  file_name: string;
+  file_type: string;
+  file_size: number;
+  purpose: ProjectFile['purpose'];
+  created_at: string;
+};
+
+type WalletTransactionRow = {
+  id: string;
+  project_id: string;
+  actor_uid: string;
+  amount: number | null;
+  transaction_type: WalletTransaction['transactionType'];
+  status: WalletTransaction['status'];
+  provider: string | null;
+  provider_reference: string | null;
+  note: string | null;
+  created_at: string;
+};
+
 type SupabaseError = { message: string } | null | undefined;
 
 const AUDIT_PRICE = 999;
@@ -230,6 +313,11 @@ const AUDIT_PRICE = 999;
 const toArray = (value: string[] | null | undefined) => Array.isArray(value) ? value : [];
 const nowIso = () => new Date().toISOString();
 const createId = (prefix: string) => `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`.toUpperCase();
+const parseExperienceYears = (value: string | null | undefined) => {
+  const numbers = (value || '').match(/\d+/g)?.map(Number) || [];
+  if (numbers.length === 0) return 0;
+  return Math.max(...numbers);
+};
 
 const assertOk = (error: SupabaseError) => {
   if (error) throw new Error(error.message);
@@ -239,6 +327,7 @@ const professionalRow = (row: ProfessionalRow): Professional => ({
   id: row.id,
   name: row.name,
   type: row.type,
+  partnerUid: row.partner_uid || null,
   city: row.city,
   phone: row.phone,
   rating: row.rating ?? 0,
@@ -260,6 +349,7 @@ const professionalRow = (row: ProfessionalRow): Professional => ({
 
 const applicationRow = (row: ApplicationRow): ProfessionalApplication => ({
   id: row.id,
+  applicantUid: row.applicant_uid || null,
   name: row.name,
   type: row.type,
   city: row.city,
@@ -285,6 +375,7 @@ const applicationRow = (row: ApplicationRow): ProfessionalApplication => ({
 
 const projectRow = (row: ProjectRow): Project => ({
   id: row.id,
+  customerUid: row.customer_uid || null,
   customerName: row.customer_name,
   city: row.city,
   homeType: row.home_type,
@@ -292,6 +383,9 @@ const projectRow = (row: ProjectRow): Project => ({
   budget: row.budget ?? 0,
   stage: row.stage || 'planning',
   progress: row.progress ?? 0,
+  desiredStartDate: row.desired_start_date || '',
+  targetHandoverDate: row.target_handover_date || '',
+  timelineNote: row.timeline_note || '',
   designerId: row.designer_id,
   contractorId: row.contractor_id,
   escrowAmount: row.escrow_amount ?? 0,
@@ -333,49 +427,176 @@ const auditRow = (row: AuditRequestRow): AuditRequest => ({
   createdAt: row.created_at,
 });
 
+const projectFileRow = (row: ProjectFileRow): ProjectFile => ({
+  id: row.id,
+  projectId: row.project_id,
+  updateId: row.update_id || null,
+  ownerUid: row.owner_uid,
+  bucket: row.bucket,
+  filePath: row.file_path,
+  signedUrl: '',
+  fileName: row.file_name,
+  fileType: row.file_type,
+  fileSize: row.file_size,
+  purpose: row.purpose,
+  createdAt: row.created_at,
+});
+
+const isRemoteUrl = (value: string) => /^https?:\/\//i.test(value);
+
+const signProjectFile = async (database: ReturnType<typeof getSupabaseClient>, file: ProjectFile): Promise<ProjectFile> => {
+  const signed = await database.storage.from(file.bucket).createSignedUrl(file.filePath, 60 * 60);
+  return {
+    ...file,
+    signedUrl: signed.data?.signedUrl || '',
+  };
+};
+
+const signSiteUpdateImages = async (database: ReturnType<typeof getSupabaseClient>, updates: SiteUpdate[]): Promise<SiteUpdate[]> => {
+  const signedUpdates = await Promise.all(updates.map(async update => {
+    const images = await Promise.all(update.images.map(async image => {
+      if (!image || isRemoteUrl(image)) return image;
+      const signed = await database.storage.from('project-files').createSignedUrl(image, 60 * 60);
+      return signed.data?.signedUrl || image;
+    }));
+    return { ...update, images };
+  }));
+  return signedUpdates;
+};
+
+const uploadProofFile = async (body: { projectId: string; ownerUid: string; purpose: ProjectFile['purpose']; file: File; updateId?: string | null }) => {
+  const database = getSupabaseClient();
+  const safeName = body.file.name.replace(/[^\w.-]+/g, '-').toLowerCase();
+  const updateSegment = body.updateId ? `${body.updateId}/` : '';
+  const filePath = `${body.ownerUid}/${body.projectId}/${body.purpose}/${updateSegment}${Date.now()}-${safeName}`;
+  const bucket = 'project-files';
+
+  const uploadResult = await database.storage.from(bucket).upload(filePath, body.file, {
+    cacheControl: '3600',
+    upsert: false,
+  });
+  assertOk(uploadResult.error);
+
+  const filePayload = {
+    id: createId('FIL'),
+    project_id: body.projectId,
+    update_id: body.updateId || null,
+    owner_uid: body.ownerUid,
+    bucket,
+    file_path: filePath,
+    file_name: body.file.name,
+    file_type: body.file.type || 'application/octet-stream',
+    file_size: body.file.size,
+    purpose: body.purpose,
+    created_at: nowIso(),
+  };
+  const { error } = await database.from('project_files').insert(filePayload);
+  if (error && /update_id|schema cache/i.test(error.message)) {
+    const legacyPayload = { ...filePayload };
+    delete (legacyPayload as Partial<typeof filePayload>).update_id;
+    const retry = await database.from('project_files').insert(legacyPayload);
+    assertOk(retry.error);
+  } else {
+    assertOk(error);
+  }
+
+  return filePath;
+};
+
+const walletTransactionRow = (row: WalletTransactionRow): WalletTransaction => ({
+  id: row.id,
+  projectId: row.project_id,
+  actorUid: row.actor_uid,
+  amount: row.amount ?? 0,
+  transactionType: row.transaction_type || 'fund',
+  status: row.status || 'recorded',
+  provider: row.provider || 'manual',
+  providerReference: row.provider_reference || '',
+  note: row.note || '',
+  createdAt: row.created_at,
+});
+
 export const api = {
-  bootstrap: async (): Promise<BootstrapData> => {
+  bootstrap: async (scope: DataScope = {}): Promise<BootstrapData> => {
     const database = getSupabaseClient();
+    const isAdmin = scope.role === 'admin';
+    const hasPrivilegedScope = Boolean(scope.uid) || isAdmin;
+
+    const professionalsResult = await database.from('professionals').select('*').order('rating', { ascending: false });
+    assertOk(professionalsResult.error);
+
+    if (!hasPrivilegedScope) {
+      const professionals = ((professionalsResult.data || []) as ProfessionalRow[])
+        .map(professionalRow)
+        .filter(item => item.status === 'listed')
+        .sort((a, b) => b.rating - a.rating || a.name.localeCompare(b.name));
+
+      return {
+        professionals,
+        applications: [],
+        projects: [],
+        siteUpdates: [],
+        remarks: [],
+        auditRequests: [],
+        projectFiles: [],
+        walletTransactions: [],
+        auditPrice: AUDIT_PRICE,
+      };
+    }
+
     const [
-      professionalsResult,
       applicationsResult,
       projectsResult,
       siteUpdatesResult,
       remarksResult,
       auditRequestsResult,
+      projectFilesResult,
+      walletTransactionsResult,
     ] = await Promise.all([
-      database.from('professionals').select('*'),
-      database.from('applications').select('*').order('created_at', { ascending: false }),
+      isAdmin
+        ? database.from('applications').select('*').order('created_at', { ascending: false })
+        : database.from('applications').select('*').eq('applicant_uid', scope.uid).order('created_at', { ascending: false }),
       database.from('projects').select('*').order('created_at', { ascending: false }),
       database.from('site_updates').select('*').order('created_at', { ascending: false }),
       database.from('remarks').select('*').order('created_at', { ascending: false }),
       database.from('audit_requests').select('*').order('created_at', { ascending: false }),
+      database.from('project_files').select('*').order('created_at', { ascending: false }),
+      database.from('wallet_transactions').select('*').order('created_at', { ascending: false }),
     ]);
 
-    [
-      professionalsResult.error,
-      applicationsResult.error,
-      projectsResult.error,
-      siteUpdatesResult.error,
-      remarksResult.error,
-      auditRequestsResult.error,
-    ].forEach(assertOk);
+    const walletTableMissing = walletTransactionsResult.error
+      && /wallet_transactions|schema cache|does not exist|could not find/i.test(walletTransactionsResult.error.message);
+    [applicationsResult.error, projectsResult.error, siteUpdatesResult.error, remarksResult.error, auditRequestsResult.error, projectFilesResult.error].forEach(assertOk);
+    if (!walletTableMissing) assertOk(walletTransactionsResult.error);
 
     const professionals = ((professionalsResult.data || []) as ProfessionalRow[])
       .map(professionalRow)
+      .filter(item => isAdmin || item.status === 'listed')
       .sort((a, b) => (
         Number(b.status === 'listed') - Number(a.status === 'listed')
         || b.rating - a.rating
         || a.name.localeCompare(b.name)
       ));
 
+    const siteUpdates = await signSiteUpdateImages(
+      database,
+      ((siteUpdatesResult.data || []) as SiteUpdateRow[]).map(updateRow),
+    );
+    const projectFiles = await Promise.all(
+      ((projectFilesResult.data || []) as ProjectFileRow[])
+        .map(projectFileRow)
+        .map(file => signProjectFile(database, file)),
+    );
+
     return {
       professionals,
       applications: ((applicationsResult.data || []) as ApplicationRow[]).map(applicationRow),
       projects: ((projectsResult.data || []) as ProjectRow[]).map(projectRow),
-      siteUpdates: ((siteUpdatesResult.data || []) as SiteUpdateRow[]).map(updateRow),
+      siteUpdates,
       remarks: ((remarksResult.data || []) as RemarkRow[]).map(remarkRow),
       auditRequests: ((auditRequestsResult.data || []) as AuditRequestRow[]).map(auditRow),
+      projectFiles,
+      walletTransactions: walletTableMissing ? [] : ((walletTransactionsResult.data || []) as WalletTransactionRow[]).map(walletTransactionRow),
       auditPrice: AUDIT_PRICE,
     };
   },
@@ -384,6 +605,7 @@ export const api = {
     const database = getSupabaseClient();
     const { error } = await database.from('applications').insert({
       id: createId('APP'),
+      applicant_uid: body.applicantUid || null,
       name: body.name || '',
       type: body.type || 'Contractor',
       city: body.city || '',
@@ -407,32 +629,32 @@ export const api = {
       created_at: nowIso(),
     });
     assertOk(error);
-    return api.bootstrap();
+    return api.bootstrap({ uid: body.applicantUid });
   },
 
   updateApplicationStatus: async (id: string, status: ApplicationStatus) => {
     const database = getSupabaseClient();
-    const { data, error } = await database
+    const current = await database
       .from('applications')
-      .update({ status })
-      .eq('id', id)
       .select('*')
+      .eq('id', id)
       .maybeSingle();
-    assertOk(error);
-    if (!data) throw new Error('Application not found.');
+    assertOk(current.error);
+    if (!current.data) throw new Error('Application not found.');
 
-    const application = data as ApplicationRow;
+    const application = current.data as ApplicationRow;
     if (status === 'approved') {
-      const professionalId = id.replace('APP', application.type === 'Interior Designer' ? 'PRO' : 'CON');
-      const { error: professionalError } = await database.from('professionals').upsert({
+      const professionalId = id.replace(/^APP/i, application.type === 'Interior Designer' ? 'PRO' : 'CON');
+      const professionalPayload = {
         id: professionalId,
+        partner_uid: application.applicant_uid || null,
         name: application.name,
         type: application.type,
         city: application.city,
         phone: application.phone,
         rating: 0,
         review_count: 0,
-        experience_years: Number.parseInt(application.experience || '', 10) || 0,
+        experience_years: parseExperienceYears(application.experience),
         starting_price: application.starting_price ?? 0,
         price_unit: application.price_unit || 'per project',
         services: toArray(application.services),
@@ -442,20 +664,32 @@ export const api = {
         grihamm_certified: Boolean(application.grihamm_certified),
         academy_credential: application.academy_credential || '',
         portfolio_images: toArray(application.portfolio_images),
-        bio: application.summary || '',
+        bio: application.summary || application.headline || '',
         status: 'listed',
         created_at: nowIso(),
-      }, { onConflict: 'id', ignoreDuplicates: true });
+      };
+      const { error: professionalError } = await database
+        .from('professionals')
+        .upsert(professionalPayload, { onConflict: 'id' });
       assertOk(professionalError);
     }
 
-    return api.bootstrap();
+    const { error } = await database
+      .from('applications')
+      .update({ status })
+      .eq('id', id)
+      .select('id')
+      .maybeSingle();
+    assertOk(error);
+
+    return api.bootstrap({ role: 'admin' });
   },
 
   createProfessional: async (body: ProfessionalInput) => {
     const database = getSupabaseClient();
     const { error } = await database.from('professionals').insert({
       id: createId(body.type === 'Interior Designer' ? 'PRO' : 'CON'),
+      partner_uid: null,
       name: body.name || '',
       type: body.type || 'Contractor',
       city: body.city || '',
@@ -477,13 +711,14 @@ export const api = {
       created_at: nowIso(),
     });
     assertOk(error);
-    return api.bootstrap();
+    return api.bootstrap({ role: 'admin' });
   },
 
   createProject: async (body: ProjectInput) => {
     const database = getSupabaseClient();
-    const { error } = await database.from('projects').insert({
+    const legacyPayload = {
       id: createId('GR'),
+      customer_uid: body.customerUid || null,
       customer_name: body.customerName || 'New customer',
       city: body.city || '',
       home_type: body.homeType || '',
@@ -496,16 +731,28 @@ export const api = {
       escrow_amount: 0,
       next_action: 'Grihamm operations will verify scope and assign the delivery team.',
       created_at: nowIso(),
-    });
-    assertOk(error);
-    return api.bootstrap();
+    };
+    const scheduledPayload = {
+      ...legacyPayload,
+      desired_start_date: body.desiredStartDate || null,
+      target_handover_date: body.targetHandoverDate || null,
+      timeline_note: body.timelineNote || '',
+    };
+    const { error } = await database.from('projects').insert(scheduledPayload);
+    if (error && /desired_start_date|target_handover_date|timeline_note|schema cache/i.test(error.message)) {
+      const retry = await database.from('projects').insert(legacyPayload);
+      assertOk(retry.error);
+    } else {
+      assertOk(error);
+    }
+    return api.bootstrap({ uid: body.customerUid, role: 'homeowner' });
   },
 
   updateProfessionalStatus: async (id: string, status: ProfessionalStatus) => {
     const database = getSupabaseClient();
     const { error } = await database.from('professionals').update({ status }).eq('id', id);
     assertOk(error);
-    return api.bootstrap();
+    return api.bootstrap({ role: 'admin' });
   },
 
   updateProfessionalCertification: async (id: string, grihammCertified: boolean, academyCredential: string) => {
@@ -515,28 +762,38 @@ export const api = {
       .update({ grihamm_certified: grihammCertified, academy_credential: academyCredential })
       .eq('id', id);
     assertOk(error);
-    return api.bootstrap();
+    return api.bootstrap({ role: 'admin' });
   },
 
   createSiteUpdate: async (body: SiteUpdateInput) => {
     const database = getSupabaseClient();
+    const updateId = createId('UPD');
+    const uploadedImages = body.actorUid && body.files?.length
+      ? await Promise.all(body.files.map(file => uploadProofFile({
+        projectId: body.projectId,
+        ownerUid: body.actorUid as string,
+        purpose: 'progress',
+        file,
+        updateId,
+      })))
+      : [];
     const { error } = await database.from('site_updates').insert({
-      id: createId('UPD'),
+      id: updateId,
       project_id: body.projectId,
       professional_id: body.professionalId,
       title: body.title || 'Site progress update',
       summary: body.summary || '',
       completed: body.completed || [],
-      images: body.images || [],
+      images: [...(body.images || []), ...uploadedImages],
       next_step: body.nextStep || '',
       status: 'submitted',
       created_at: nowIso(),
     });
     assertOk(error);
-    return api.bootstrap();
+    return api.bootstrap({ uid: body.actorUid });
   },
 
-  createRemark: async (body: { projectId: string; updateId?: string | null; authorType: Remark['authorType']; text: string }) => {
+  createRemark: async (body: { projectId: string; updateId?: string | null; authorType: Remark['authorType']; text: string; actorUid?: string | null }) => {
     const database = getSupabaseClient();
     const { error } = await database.from('remarks').insert({
       id: createId('REM'),
@@ -548,11 +805,25 @@ export const api = {
       created_at: nowIso(),
     });
     assertOk(error);
-    return api.bootstrap();
+    return api.bootstrap({ uid: body.actorUid });
   },
 
-  createAuditRequest: async (body: { projectId: string; requestedBy: string; reason: string; preferredSlot: string }) => {
+  createAuditRequest: async (body: { projectId: string; requestedBy: string; reason: string; preferredSlot: string; actorUid?: string | null }) => {
     const database = getSupabaseClient();
+    const rpcResult = await database.rpc('request_project_audit', {
+      p_project_id: body.projectId,
+      p_requested_by: body.requestedBy || 'customer',
+      p_reason: body.reason || '',
+      p_preferred_slot: body.preferredSlot || '',
+      p_price: AUDIT_PRICE,
+    });
+    if (!rpcResult.error) {
+      return api.bootstrap({ uid: body.actorUid, role: 'homeowner' });
+    }
+    if (!/request_project_audit|schema cache|does not exist|could not find/i.test(rpcResult.error.message)) {
+      assertOk(rpcResult.error);
+    }
+
     const { error } = await database.from('audit_requests').insert({
       id: createId('AUD'),
       project_id: body.projectId,
@@ -574,14 +845,67 @@ export const api = {
       .eq('id', body.projectId);
     assertOk(projectError);
 
-    return api.bootstrap();
+    return api.bootstrap({ uid: body.actorUid, role: 'homeowner' });
+  },
+
+  fundProjectWallet: async (body: { projectId: string; actorUid?: string | null; amount: number; provider?: string; providerReference?: string; note?: string }) => {
+    const database = getSupabaseClient();
+    const amount = Math.round(Number(body.amount || 0));
+    if (!body.projectId) throw new Error('Project is required to fund the wallet.');
+    if (!amount || amount <= 0) throw new Error('Enter a valid funding amount.');
+
+    const rpcResult = await database.rpc('record_wallet_funding', {
+      p_project_id: body.projectId,
+      p_amount: amount,
+      p_provider: body.provider || 'manual',
+      p_provider_reference: body.providerReference || '',
+      p_note: body.note || '',
+    });
+    if (!rpcResult.error) {
+      return api.bootstrap({ uid: body.actorUid, role: 'homeowner' });
+    }
+    if (!/record_wallet_funding|schema cache|does not exist|could not find/i.test(rpcResult.error.message)) {
+      assertOk(rpcResult.error);
+    }
+
+    const currentProject = await database
+      .from('projects')
+      .select('escrow_amount')
+      .eq('id', body.projectId)
+      .maybeSingle();
+    assertOk(currentProject.error);
+    const currentEscrow = Number((currentProject.data as Pick<ProjectRow, 'escrow_amount'> | null)?.escrow_amount || 0);
+    const transactionResult = await database.from('wallet_transactions').insert({
+      id: createId('WAL'),
+      project_id: body.projectId,
+      actor_uid: body.actorUid,
+      amount,
+      transaction_type: 'fund',
+      status: 'recorded',
+      provider: body.provider || 'manual',
+      provider_reference: body.providerReference || '',
+      note: body.note || '',
+      created_at: nowIso(),
+    });
+    assertOk(transactionResult.error);
+    const projectResult = await database
+      .from('projects')
+      .update({
+        escrow_amount: currentEscrow + amount,
+        stage: 'Escrow funded',
+        next_action: 'Wallet funding recorded. Grihamm operations will verify the payment reference before release.',
+      })
+      .eq('id', body.projectId);
+    assertOk(projectResult.error);
+
+    return api.bootstrap({ uid: body.actorUid, role: 'homeowner' });
   },
 
   updateAuditStatus: async (id: string, status: string) => {
     const database = getSupabaseClient();
     const { error } = await database.from('audit_requests').update({ status }).eq('id', id);
     assertOk(error);
-    return api.bootstrap();
+    return api.bootstrap({ role: 'admin' });
   },
 
   assignContractor: async (projectId: string, contractorId: string) => {
@@ -595,7 +919,12 @@ export const api = {
       })
       .eq('id', projectId);
     assertOk(error);
-    return api.bootstrap();
+    return api.bootstrap({ role: 'admin' });
+  },
+
+  uploadProjectFile: async (body: { projectId: string; ownerUid: string; purpose: ProjectFile['purpose']; file: File }) => {
+    await uploadProofFile(body);
+    return api.bootstrap({ uid: body.ownerUid });
   },
 };
 

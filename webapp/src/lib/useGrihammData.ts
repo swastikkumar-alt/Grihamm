@@ -1,7 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api, type BootstrapData } from './api';
+import { useAuth } from '../contexts/AuthContext';
 
 export function useGrihammData() {
+  const { currentUser, userProfile } = useAuth();
+  const uid = currentUser?.uid;
+  const role = userProfile?.role;
   const [data, setData] = useState<BootstrapData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -10,13 +14,13 @@ export function useGrihammData() {
     setLoading(true);
     setError('');
     try {
-      setData(await api.bootstrap());
+      setData(await api.bootstrap({ uid, role }));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unable to load Supabase data.');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [uid, role]);
 
   const replaceData = useCallback((nextData: BootstrapData) => {
     setData(nextData);
@@ -26,7 +30,7 @@ export function useGrihammData() {
   useEffect(() => {
     let isActive = true;
 
-    api.bootstrap()
+    api.bootstrap({ uid, role })
       .then(nextData => {
         if (!isActive) return;
         setData(nextData);
@@ -43,7 +47,7 @@ export function useGrihammData() {
     return () => {
       isActive = false;
     };
-  }, []);
+  }, [uid, role]);
 
   return { data, loading, error, reload: load, replaceData };
 }

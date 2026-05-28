@@ -1,16 +1,19 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { BriefcaseBusiness, ChevronDown, LayoutDashboard, LogOut, Moon, Settings, Sun } from 'lucide-react';
-import { Link, useLocation } from 'react-router-dom';
+import { ChevronDown, LayoutDashboard, LogOut, Moon, Settings, Sun, Wallet } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { formatCurrency } from '../lib/api';
+import { useGrihammData } from '../lib/useGrihammData';
 import AuthModal from './AuthModal';
 
 const Navbar = ({ isDark, toggleTheme }: { isDark: boolean; toggleTheme: () => void }) => {
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
-  const location = useLocation();
   const { currentUser, userProfile, logout } = useAuth();
+  const { data } = useGrihammData();
   const menuRef = useRef<HTMLDivElement>(null);
+  const escrowBalance = (data?.projects || []).reduce((total, project) => total + project.escrowAmount, 0);
 
   useEffect(() => {
     const handleClickOutside = (event: globalThis.MouseEvent) => {
@@ -38,13 +41,16 @@ const Navbar = ({ isDark, toggleTheme }: { isDark: boolean; toggleTheme: () => v
     ? 'Admin Panel'
     : userProfile?.role === 'contractor' || userProfile?.role === 'designer'
       ? 'Professional OS'
-      : 'Track Project';
+      : 'Dashboard';
 
   const dashboardPath = userProfile?.role === 'admin'
     ? '/admin'
     : userProfile?.role === 'contractor' || userProfile?.role === 'designer'
       ? '/contractor-os'
       : '/track-project';
+  const walletPath = userProfile?.role === 'contractor' || userProfile?.role === 'designer'
+    ? '/contractor-os'
+    : '/track-project';
 
   const getRoleClass = () => {
     if (userProfile?.role === 'admin') return 'admin';
@@ -65,24 +71,11 @@ const Navbar = ({ isDark, toggleTheme }: { isDark: boolean; toggleTheme: () => v
           <img src="/logo.png" alt="Grihamm Logo" className="logo-proper" />
           <div className="site-nav-brand-text">
             <span className="site-nav-brand-name">GRIHAMM</span>
-            <span className="site-nav-brand-tagline">Book · Build · Track</span>
+            <span className="site-nav-brand-tagline">Book. Build. Track.</span>
           </div>
         </Link>
 
-        <div className="site-nav-links">
-          <Link
-            to="/"
-            className={`nav-link${location.pathname === '/' ? ' active' : ''}`}
-          >
-            Home
-          </Link>
-          <Link
-            to="/marketplace"
-            className={`nav-link${location.pathname === '/marketplace' ? ' active' : ''}`}
-          >
-            Services
-          </Link>
-        </div>
+        <div className="site-nav-links" aria-hidden="true" />
 
         <div className="site-nav-controls">
           <button
@@ -96,6 +89,15 @@ const Navbar = ({ isDark, toggleTheme }: { isDark: boolean; toggleTheme: () => v
           <div className="nav-divider" />
 
           {currentUser ? (
+            <>
+            <Link to={walletPath} className="nav-wallet" aria-label="Open escrow wallet">
+              <Wallet size={16} />
+              <span className="nav-wallet-popover">
+                <strong>{formatCurrency(escrowBalance)}</strong>
+                <small>Escrow balance across your active projects.</small>
+                <em>Open dashboard to add funds or review milestone releases.</em>
+              </span>
+            </Link>
             <div ref={menuRef} style={{ position: 'relative' }}>
               <button
                 id="user-menu-trigger"
@@ -145,10 +147,6 @@ const Navbar = ({ isDark, toggleTheme }: { isDark: boolean; toggleTheme: () => v
                     <Link to={dashboardPath} onClick={() => setIsUserMenuOpen(false)} className="nav-menu-item">
                       {userProfile?.role === 'admin' ? <Settings size={15} /> : <LayoutDashboard size={15} />} {dashboardLabel}
                     </Link>
-                    <Link to="/marketplace" onClick={() => setIsUserMenuOpen(false)} className="nav-menu-item">
-                      <BriefcaseBusiness size={15} /> Service Marketplace
-                    </Link>
-
                     <div className="nav-menu-divider" />
 
                     <button
@@ -162,6 +160,7 @@ const Navbar = ({ isDark, toggleTheme }: { isDark: boolean; toggleTheme: () => v
                 )}
               </AnimatePresence>
             </div>
+            </>
           ) : (
             <button
               id="login-btn"

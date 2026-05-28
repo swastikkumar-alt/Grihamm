@@ -1,15 +1,15 @@
-import React, { useState } from 'react';
+import React, { Suspense, lazy, useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link, Navigate } from 'react-router-dom';
 import Navbar from './components/Navbar';
-import Admin from './pages/Admin';
-import ProjectOS from './pages/ProjectOS';
-import ContractorRegister from './pages/ContractorRegister';
-import ContractorOS from './pages/ContractorOS';
 import ProfileSetupModal from './components/ProfileSetupModal';
 import { useAuth } from './contexts/AuthContext';
-import MvpPrototype from './pages/MvpPrototype';
-import HomePage from './pages/HomePage';
-import LegalPage from './pages/LegalPage';
+
+const Admin = lazy(() => import('./pages/Admin'));
+const ProjectOS = lazy(() => import('./pages/ProjectOS'));
+const ContractorRegister = lazy(() => import('./pages/ContractorRegister'));
+const ContractorOS = lazy(() => import('./pages/ContractorOS'));
+const MvpPrototype = lazy(() => import('./pages/MvpPrototype'));
+const LegalPage = lazy(() => import('./pages/LegalPage'));
 
 const ProtectedRoute = ({ children, allowedRoles }: { children: React.ReactNode; allowedRoles?: string[] }) => {
   const { userProfile, loading } = useAuth();
@@ -47,26 +47,43 @@ function App() {
       <div className="app">
         <Navbar isDark={isDark} toggleTheme={toggleTheme} />
         <main>
-          <Routes>
-            <Route path="/" element={<HomePage />} />
-            <Route path="/marketplace" element={<MvpPrototype />} />
-            <Route path="/brand" element={<Navigate to="/" replace />} />
-            <Route path="/contractor-register" element={<ContractorRegister />} />
-            <Route path="/terms" element={<LegalPage type="terms" />} />
-            <Route path="/privacy" element={<LegalPage type="privacy" />} />
-            <Route path="/dashboard" element={<RoleDashboardRedirect />} />
-            <Route path="/admin" element={<ProtectedRoute allowedRoles={['admin']}><Admin /></ProtectedRoute>} />
-            <Route path="/contractor-os" element={<ProtectedRoute allowedRoles={['contractor', 'designer', 'admin']}><ContractorOS /></ProtectedRoute>} />
-            <Route path="/track-project" element={<ProtectedRoute allowedRoles={['homeowner', 'admin']}><ProjectOS /></ProtectedRoute>} />
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
+          <Suspense fallback={<div className="route-loading">Loading Grihamm...</div>}>
+            <Routes>
+              <Route path="/" element={<MvpPrototype />} />
+              <Route path="/marketplace" element={<Navigate to="/" replace />} />
+              <Route path="/brand" element={<Navigate to="/" replace />} />
+              <Route path="/contractor-register" element={<ContractorRegister />} />
+              <Route path="/terms" element={<LegalPage type="terms" />} />
+              <Route path="/privacy" element={<LegalPage type="privacy" />} />
+              <Route path="/dashboard" element={<RoleDashboardRedirect />} />
+              <Route path="/admin" element={<ProtectedRoute allowedRoles={['admin']}><Admin /></ProtectedRoute>} />
+              <Route path="/contractor-os" element={<ProtectedRoute allowedRoles={['contractor', 'designer', 'admin']}><ContractorOS /></ProtectedRoute>} />
+              <Route path="/track-project" element={<ProtectedRoute allowedRoles={['homeowner', 'admin']}><ProjectOS /></ProtectedRoute>} />
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          </Suspense>
 
           <ProfileSetupModal isOpen={showSetup} onClose={() => undefined} />
+
+          <section className="site-partner-band">
+            <div className="container site-partner-band-inner">
+              <div className="site-partner-copy">
+                <span className="site-footer-kicker">Partner network</span>
+                <h2>Work on verified Grihamm projects.</h2>
+                <p>
+                  Contractors and designers can submit service areas, capacity,
+                  portfolio work, GST details, references, and audit-ready project
+                  details for review.
+                </p>
+              </div>
+              <Link className="btn-primary" to="/contractor-register">Partner with us</Link>
+            </div>
+          </section>
 
           <footer className="site-footer">
             <div className="container site-footer-inner">
               <div className="site-footer-brand">
-                <img src={isDark ? '/logo_dark.png' : '/logo_light.png'} alt="Grihamm Logo" onError={event => { (event.target as HTMLImageElement).src = '/logo.png'; }} />
+                <img src="/logo.png" alt="Grihamm Logo" />
                 <span>Book. Build. Track.</span>
               </div>
 
@@ -78,19 +95,19 @@ function App() {
               </div>
 
               <div className="site-footer-links">
-                <span className="site-footer-kicker">Academy</span>
-                <Link to="/contractor-register">Certification</Link>
-                <Link to="/contractor-register">Partner onboarding</Link>
+                <span className="site-footer-kicker">Standards</span>
+                <span>Certification review</span>
+                <span>Site quality audits</span>
               </div>
 
-              <div className="site-footer-links">
+              <div id="contact" className="site-footer-links">
                 <span className="site-footer-kicker">Contact</span>
                 <Link to="/#contact">Contact Grihamm</Link>
                 <a href="mailto:hello@grihamm.com">hello@grihamm.com</a>
               </div>
             </div>
             <div className="container site-footer-bottom">
-              <span>© 2026 Grihamm. All rights reserved.</span>
+              <span>Copyright 2026 Grihamm. All rights reserved.</span>
               <span className="site-footer-legal">
                 <Link to="/terms">Terms</Link>
                 <Link to="/privacy">Privacy</Link>

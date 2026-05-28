@@ -1,112 +1,126 @@
-import { useState } from 'react';
-import { Camera, ClipboardList, MessageSquareText, ShieldCheck, Upload } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { Camera, ClipboardList, FileImage, MessageSquareText, ShieldCheck, Upload } from 'lucide-react';
 import { api, formatCurrency, type Professional } from '../lib/api';
+import { useAuth } from '../contexts/AuthContext';
 import { useGrihammData } from '../lib/useGrihammData';
 import './Dashboard.css';
 
 const ContractorOS = () => {
+  const { currentUser, userProfile } = useAuth();
   const { data, loading, error, replaceData } = useGrihammData();
-  const partners = data?.professionals.filter(item => item.status === 'listed') || [];
+  const isAdmin = userProfile?.role === 'admin';
+  const partners = useMemo(() => {
+    const listed = data?.professionals.filter(item => item.status === 'listed') || [];
+    return isAdmin ? listed : listed.filter(item => item.partnerUid === currentUser?.uid);
+  }, [currentUser?.uid, data?.professionals, isAdmin]);
+
   const [selectedPartnerId, setSelectedPartnerId] = useState('');
   const selectedPartner = partners.find(item => item.id === selectedPartnerId) || partners[0] || null;
-
   const assignedProjects = data?.projects.filter(project => (
     project.contractorId === selectedPartner?.id || project.designerId === selectedPartner?.id
   )) || [];
-  const visibleProjects = assignedProjects;
   const [selectedProjectId, setSelectedProjectId] = useState('');
-  const selectedProject = visibleProjects.find(project => project.id === selectedProjectId) || visibleProjects[0];
+  const selectedProject = assignedProjects.find(project => project.id === selectedProjectId) || assignedProjects[0] || null;
 
   const [title, setTitle] = useState('');
   const [summary, setSummary] = useState('');
   const [completedText, setCompletedText] = useState('');
   const [nextStep, setNextStep] = useState('');
-  const [imageText, setImageText] = useState('');
-  const [uploadedImages, setUploadedImages] = useState<string[]>([]);
+  const [files, setFiles] = useState<File[]>([]);
   const [notice, setNotice] = useState('');
+  const [submitting, setSubmitting] = useState(false);
 
   const remarks = data?.remarks.filter(remark => remark.projectId === selectedProject?.id) || [];
   const audits = data?.auditRequests.filter(audit => audit.projectId === selectedProject?.id) || [];
   const updates = data?.siteUpdates.filter(update => update.projectId === selectedProject?.id) || [];
+  const projectFiles = data?.projectFiles.filter(file => file.projectId === selectedProject?.id && file.purpose === 'progress') || [];
 
-  const handleProgressUpload = async (files: FileList | null) => {
-    if (!files?.length) return;
-    const selectedFiles = Array.from(files).filter(file => file.type.startsWith('image/')).slice(0, 6);
-    const images = await Promise.all(selectedFiles.map(file => new Promise<string>((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(String(reader.result));
-      reader.onerror = () => reject(new Error(`Could not read ${file.name}`));
-      reader.readAsDataURL(file);
-    })));
-    setUploadedImages(prev => [...prev, ...images].slice(0, 6));
+  const handleProgressUpload = (list: FileList | null) => {
+    if (!list?.length) return;
+    const selected = Array.from(list)
+      .filter(file => file.type.startsWith('image/'))
+      .filter(file => file.size <= 8 * 1024 * 1024)
+      .slice(0, 8);
+    setFiles(selected);
   };
 
   const submitUpdate = async () => {
-    if (!selectedProject || !selectedPartner || !summary.trim()) return;
-    const nextData = await api.createSiteUpdate({
-      projectId: selectedProject.id,
-      professionalId: selectedPartner.id,
-      title: title.trim() || 'Site progress update',
-      summary: summary.trim(),
-      completed: completedText.split('\n').map(item => item.trim()).filter(Boolean),
-      images: [
-        ...imageText.split(',').map(item => item.trim()).filter(Boolean),
-        ...uploadedImages,
-      ],
-      nextStep,
-    });
-    replaceData(nextData);
-    setTitle('');
-    setSummary('');
-    setCompletedText('');
-    setNextStep('');
-    setImageText('');
-    setUploadedImages([]);
-    setNotice('Site update submitted. Customer and admin can now review it.');
+    if (!selectedProject || !selectedPartner || !summary.trim() || !currentUser) return;
+    setSubmitting(true);
+    setNotice('');
+    try {
+      const nextData = await api.createSiteUpdate({
+        projectId: selectedProject.id,
+        professionalId: selectedPartner.id,
+        title: title.trim() || 'Site progress update',
+        summary: summary.trim(),
+        completed: completedText.split('\n').map(item => item.trim()).filter(Boolean),
+        images: [],
+        nextStep,
+        actorUid: currentUser.uid,
+        files,
+      });
+      replaceData(nextData);
+      setTitle('');
+      setSummary('');
+      setCompletedText('');
+      setNextStep('');
+      setFiles([]);
+      setNotice('Progress update submitted with proof files. Customer can now review and remark.');
+    } catch (err) {
+      setNotice(err instanceof Error ? err.message : 'Could not submit progress update.');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
-  const partnerTypeLabel = (partner: Professional | null) => partner ? `${partner.type} - ${partner.city}` : 'Professional';
-
   return (
-    <div className="dashboard-shell" style={{ background: 'var(--background)', minHeight: '100vh', padding: '110px 0 60px' }}>
+    <div className="dashboard-shell">
       <div className="container">
-        <div className="dashboard-header" style={{ display: 'flex', justifyContent: 'space-between', gap: '2rem', alignItems: 'end', flexWrap: 'wrap', marginBottom: '2rem' }}>
+        <div className="dashboard-header">
           <div>
-            <div style={{ color: 'var(--primary)', fontWeight: 900, fontSize: '0.72rem', letterSpacing: '0.14em', textTransform: 'uppercase' }}>Partner execution dashboard</div>
-            <h1 style={{ fontFamily: 'var(--font-serif)', fontSize: '3rem', letterSpacing: 0 }}>Upload progress. Resolve remarks. Protect payouts.</h1>
-            <p style={{ color: 'var(--text-muted)', maxWidth: 760, lineHeight: 1.7 }}>Contractors and interior designers should see assigned jobs, customer remarks, audit requests, and the exact proof needed for milestone release.</p>
+            <div className="dashboard-kicker">Partner profile</div>
+            <h1>Upload progress. Resolve remarks.</h1>
+            <p>Partners update assigned work with photos, completed tasks, blockers, and next steps. Customers review those updates from their profile and leave remarks against them.</p>
           </div>
-          {partners.length > 0 && (
-            <select value={selectedPartner?.id || ''} onChange={event => setSelectedPartnerId(event.target.value)} style={{ minWidth: 280, padding: '0.9rem', borderRadius: 8, background: 'var(--surface)', color: 'var(--text)', border: '1px solid var(--glass-border)' }}>
+          {partners.length > 1 && (
+            <select value={selectedPartner?.id || ''} onChange={event => setSelectedPartnerId(event.target.value)} className="dashboard-select">
               {partners.map(partner => <option key={partner.id} value={partner.id}>{partner.name}</option>)}
             </select>
           )}
         </div>
 
-        {error && <div style={{ padding: '1rem', color: '#f59e0b', border: '1px solid rgba(245,158,11,0.35)', borderRadius: 8 }}>Check your Supabase environment variables and run the Supabase migration. {error}</div>}
-        {loading && <div className="glass" style={{ padding: '2rem', border: '1px solid var(--glass-border)' }}>Loading partner data...</div>}
+        {error && <div className="dashboard-alert warning">Check your Supabase environment variables and migrations. {error}</div>}
+        {loading && <div className="dashboard-card">Loading partner data...</div>}
+
+        {!loading && partners.length === 0 && (
+          <div className="dashboard-card">
+            <h2>No partner profile linked</h2>
+            <p>Your account is not linked to a listed professional profile yet. After admin approval, assigned jobs and upload controls will appear here.</p>
+          </div>
+        )}
 
         {data && selectedPartner && (
-          <div className="partner-layout" style={{ display: 'grid', gridTemplateColumns: '300px minmax(0,1fr)', gap: '2rem', alignItems: 'start' }}>
-            <aside className="dashboard-sticky" style={{ display: 'grid', gap: '1rem', position: 'sticky', top: 100 }}>
-              <section className="glass dashboard-panel" style={{ padding: '1.5rem', border: '1px solid var(--glass-border)', borderRadius: 10 }}>
-                <h2 style={{ fontFamily: 'var(--font-serif)', fontSize: '1.8rem', letterSpacing: 0 }}>{selectedPartner.name}</h2>
-                <p style={{ color: 'var(--text-muted)' }}>{partnerTypeLabel(selectedPartner)}</p>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginTop: '1rem' }}>
-                  <div><strong>{selectedPartner.rating.toFixed(1)}</strong><span style={{ display: 'block', color: 'var(--text-muted)', fontSize: '0.8rem' }}>rating</span></div>
-                  <div><strong>{formatCurrency(selectedPartner.startingPrice)}</strong><span style={{ display: 'block', color: 'var(--text-muted)', fontSize: '0.8rem' }}>{selectedPartner.priceUnit}</span></div>
+          <div className="partner-layout">
+            <aside className="profile-side dashboard-sticky">
+              <section className="dashboard-card partner-card">
+                <h2>{selectedPartner.name}</h2>
+                <p>{partnerTypeLabel(selectedPartner)}</p>
+                <div className="wallet-metrics compact">
+                  <div><span>Rating</span><strong>{selectedPartner.rating.toFixed(1)}</strong></div>
+                  <div><span>Price</span><strong>{formatCurrency(selectedPartner.startingPrice)}</strong></div>
                 </div>
               </section>
 
-              <section className="glass dashboard-panel" style={{ padding: '1rem', border: '1px solid var(--glass-border)', borderRadius: 10 }}>
-                <h3 style={{ marginBottom: '1rem' }}>Assigned jobs</h3>
-                <div style={{ display: 'grid', gap: '0.75rem' }}>
-                  {visibleProjects.length === 0 && <p style={{ color: 'var(--text-muted)', fontSize: '0.86rem', lineHeight: 1.6 }}>No assigned projects yet. Admin assignment will show here after approval.</p>}
-                  {visibleProjects.map(project => (
-                    <button key={project.id} onClick={() => setSelectedProjectId(project.id)} style={{ textAlign: 'left', padding: '1rem', borderRadius: 8, border: selectedProject.id === project.id ? '1px solid var(--primary)' : '1px solid var(--glass-border)', background: 'var(--surface)', color: 'var(--text)' }}>
+              <section className="dashboard-card">
+                <h3>Assigned jobs</h3>
+                <div className="job-list">
+                  {assignedProjects.length === 0 && <p>No assigned project yet.</p>}
+                  {assignedProjects.map(project => (
+                    <button key={project.id} type="button" className={selectedProject?.id === project.id ? 'active' : ''} onClick={() => setSelectedProjectId(project.id)}>
                       <strong>{project.id}</strong>
-                      <span style={{ display: 'block', color: 'var(--text-muted)', fontSize: '0.82rem' }}>{project.homeType}</span>
-                      <span style={{ display: 'block', color: 'var(--primary)', fontSize: '0.76rem', fontWeight: 900 }}>{project.stage}</span>
+                      <span>{project.homeType}</span>
+                      <em>{project.stage}</em>
                     </button>
                   ))}
                 </div>
@@ -114,90 +128,97 @@ const ContractorOS = () => {
             </aside>
 
             {selectedProject ? (
-            <main style={{ display: 'grid', gap: '1.2rem' }}>
-              <section className="glass dashboard-panel" style={{ padding: '1.8rem', border: '1px solid var(--glass-border)', borderRadius: 10 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap' }}>
+              <main className="profile-main">
+                <section className="dashboard-card project-summary-card">
                   <div>
-                    <div style={{ color: 'var(--primary)', fontWeight: 900 }}>{selectedProject.id}</div>
-                    <h2 style={{ fontFamily: 'var(--font-serif)', fontSize: '2rem', letterSpacing: 0 }}>{selectedProject.homeType}</h2>
-                    <p style={{ color: 'var(--text-muted)' }}>{selectedProject.customerName} - {selectedProject.city}</p>
+                    <span>{selectedProject.id}</span>
+                    <h2>{selectedProject.homeType}</h2>
+                    <p>{selectedProject.customerName} - {selectedProject.city}</p>
                   </div>
-                  <div style={{ textAlign: 'right' }}>
-                    <strong style={{ fontSize: '2rem', color: 'var(--primary)' }}>{selectedProject.progress}%</strong>
-                    <span style={{ display: 'block', color: 'var(--text-muted)', fontSize: '0.84rem' }}>progress</span>
-                  </div>
-                </div>
-                <div style={{ marginTop: '1rem', color: 'var(--text-muted)' }}>{selectedProject.nextAction}</div>
-              </section>
+                  <strong>{selectedProject.progress}%</strong>
+                  <div className="dashboard-progress"><span style={{ width: `${selectedProject.progress}%` }} /></div>
+                  <p>{selectedProject.nextAction}</p>
+                </section>
 
-              <section className="glass dashboard-panel" style={{ padding: '1.8rem', border: '1px solid var(--glass-border)', borderRadius: 10 }}>
-                <h3 style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: '1rem' }}><Upload size={20} color="var(--primary)" /> Submit site progress</h3>
-                <div style={{ display: 'grid', gap: '1rem' }}>
-                  <input value={title} onChange={event => setTitle(event.target.value)} placeholder="Update title" style={fieldStyle} />
-                  <textarea value={summary} onChange={event => setSummary(event.target.value)} placeholder="Describe work completed, blockers, material status, and site condition." style={{ ...fieldStyle, minHeight: 110, resize: 'vertical' }} />
-                  <textarea value={completedText} onChange={event => setCompletedText(event.target.value)} placeholder="Completed tasks, one per line" style={{ ...fieldStyle, minHeight: 90, resize: 'vertical' }} />
-                  <input value={imageText} onChange={event => setImageText(event.target.value)} placeholder="Photo URLs separated by comma" style={fieldStyle} />
-                  <input type="file" accept="image/*" multiple onChange={event => void handleProgressUpload(event.target.files)} style={fieldStyle} />
-                  {uploadedImages.length > 0 && (
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(88px, 1fr))', gap: '0.7rem' }}>
-                      {uploadedImages.map((image, index) => (
-                        <img key={`${image.slice(0, 24)}-${index}`} src={image} alt={`Progress proof ${index + 1}`} style={{ width: '100%', aspectRatio: '4 / 3', objectFit: 'cover', borderRadius: 8, border: '1px solid var(--glass-border)' }} />
+                <section className="dashboard-card partner-upload-card">
+                  <h2><Upload size={20} /> Submit work update</h2>
+                  <div className="dashboard-form-grid">
+                    <input value={title} onChange={event => setTitle(event.target.value)} placeholder="Update title" />
+                    <input value={nextStep} onChange={event => setNextStep(event.target.value)} placeholder="Next visit / next step" />
+                    <textarea value={summary} onChange={event => setSummary(event.target.value)} placeholder="Work completed, blockers, material status, and site condition." />
+                    <textarea value={completedText} onChange={event => setCompletedText(event.target.value)} placeholder="Completed tasks, one per line" />
+                  </div>
+                  <label className="upload-drop">
+                    <Camera size={20} />
+                    <strong>{files.length ? `${files.length} image(s) selected` : 'Upload progress images'}</strong>
+                    <span>Images up to 8 MB each. They are saved to Supabase Storage and attached to this project.</span>
+                    <input type="file" accept="image/*" multiple onChange={event => handleProgressUpload(event.target.files)} />
+                  </label>
+                  <button className="btn-primary" disabled={!summary.trim() || submitting} onClick={() => void submitUpdate()}>
+                    {submitting ? 'Submitting...' : 'Submit update'}
+                  </button>
+                  {notice && <div className="dashboard-alert success">{notice}</div>}
+                </section>
+
+                <div className="dashboard-two-col">
+                  <section className="dashboard-card">
+                    <h3><MessageSquareText size={18} /> Customer remarks</h3>
+                    <div className="remark-list">
+                      {remarks.length === 0 && <p>No remarks yet.</p>}
+                      {remarks.map(remark => (
+                        <div key={remark.id}>
+                          <strong>{remark.authorType}</strong>
+                          <p>{remark.text}</p>
+                        </div>
                       ))}
                     </div>
-                  )}
-                  <input value={nextStep} onChange={event => setNextStep(event.target.value)} placeholder="Next step / next visit plan" style={fieldStyle} />
-                  <button className="btn-primary" style={{ borderRadius: 8, justifySelf: 'start' }} disabled={!summary.trim()} onClick={() => void submitUpdate()}>SUBMIT UPDATE</button>
-                </div>
-                {notice && <div style={{ marginTop: '1rem', color: 'var(--primary)', fontWeight: 800 }}>{notice}</div>}
-              </section>
+                  </section>
 
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(260px,1fr))', gap: '1rem' }}>
-                <section className="glass dashboard-panel" style={{ padding: '1.4rem', border: '1px solid var(--glass-border)', borderRadius: 10 }}>
-                  <h3 style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: '1rem' }}><MessageSquareText size={18} color="var(--primary)" /> Remarks to resolve</h3>
-                  <div style={{ display: 'grid', gap: '0.8rem' }}>
-                    {remarks.map(remark => (
-                      <div key={remark.id} style={{ padding: '0.85rem', borderRadius: 8, background: 'var(--surface)' }}>
-                        <strong style={{ textTransform: 'capitalize' }}>{remark.authorType}</strong>
-                        <p style={{ color: 'var(--text-muted)', fontSize: '0.86rem', lineHeight: 1.6 }}>{remark.text}</p>
-                      </div>
-                    ))}
-                  </div>
-                </section>
-
-                <section className="glass dashboard-panel" style={{ padding: '1.4rem', border: '1px solid var(--glass-border)', borderRadius: 10 }}>
-                  <h3 style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: '1rem' }}><ShieldCheck size={18} color="var(--primary)" /> Audit status</h3>
-                  <div style={{ display: 'grid', gap: '0.8rem' }}>
-                    {audits.length === 0 && <p style={{ color: 'var(--text-muted)' }}>No audit requested on this project.</p>}
-                    {audits.map(audit => (
-                      <div key={audit.id} style={{ padding: '0.85rem', borderRadius: 8, background: 'var(--surface)' }}>
-                        <strong>{audit.status}</strong>
-                        <p style={{ color: 'var(--text-muted)', fontSize: '0.86rem', lineHeight: 1.6 }}>{audit.reason}</p>
-                        <span style={{ color: 'var(--primary)', fontWeight: 900 }}>{formatCurrency(audit.price)}</span>
-                      </div>
-                    ))}
-                  </div>
-                </section>
-              </div>
-
-              <section className="glass dashboard-panel" style={{ padding: '1.4rem', border: '1px solid var(--glass-border)', borderRadius: 10 }}>
-                <h3 style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: '1rem' }}><ClipboardList size={18} color="var(--primary)" /> Submitted updates</h3>
-                <div style={{ display: 'grid', gap: '0.9rem' }}>
-                  {updates.map(update => (
-                    <div key={update.id} style={{ display: 'grid', gridTemplateColumns: 'auto minmax(0,1fr)', gap: '0.9rem', padding: '0.9rem', background: 'var(--surface)', borderRadius: 8 }}>
-                      <Camera color="var(--primary)" />
-                      <div>
-                        <strong>{update.title}</strong>
-                        <p style={{ color: 'var(--text-muted)', fontSize: '0.86rem', lineHeight: 1.6 }}>{update.summary}</p>
-                      </div>
+                  <section className="dashboard-card">
+                    <h3><ShieldCheck size={18} /> Audit status</h3>
+                    <div className="remark-list">
+                      {audits.length === 0 && <p>No audit requested on this project.</p>}
+                      {audits.map(audit => (
+                        <div key={audit.id}>
+                          <strong>{audit.status}</strong>
+                          <p>{audit.reason}</p>
+                          <span>{formatCurrency(audit.price)}</span>
+                        </div>
+                      ))}
                     </div>
-                  ))}
+                  </section>
                 </div>
-              </section>
-            </main>
+
+                <section className="dashboard-card">
+                  <h3><ClipboardList size={18} /> Submitted updates</h3>
+                  <div className="update-feed compact">
+                    {updates.length === 0 && <div className="empty-state">No update submitted yet.</div>}
+                    {updates.map(update => (
+                      <article className="update-card" key={update.id}>
+                        <div className="update-card-head">
+                          <div>
+                            <span>{new Date(update.createdAt).toLocaleDateString('en-IN')}</span>
+                            <h3>{update.title}</h3>
+                            <p>{update.summary}</p>
+                          </div>
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                </section>
+
+                <section className="dashboard-card">
+                  <h3><FileImage size={18} /> Uploaded proof files</h3>
+                  <div className="file-list">
+                    {projectFiles.length === 0 && <p>No progress files uploaded yet.</p>}
+                    {projectFiles.map(file => <span key={file.id}>{file.fileName}</span>)}
+                  </div>
+                </section>
+              </main>
             ) : (
-              <section className="glass dashboard-panel" style={{ padding: '2rem', border: '1px solid var(--glass-border)', borderRadius: 10 }}>
-                <h2 style={{ fontFamily: 'var(--font-serif)', fontSize: '2rem', letterSpacing: 0 }}>No assigned project selected</h2>
-                <p style={{ color: 'var(--text-muted)', lineHeight: 1.7, marginTop: '0.6rem' }}>Once admin assigns a residential, corporate, retail, or commercial project, this area will show upload actions, remarks, audit status, and milestone proof.</p>
+              <section className="dashboard-card">
+                <h2>No assigned project selected</h2>
+                <p>After admin assigns a project to this partner profile, upload controls and customer remarks will appear here.</p>
               </section>
             )}
           </div>
@@ -207,14 +228,6 @@ const ContractorOS = () => {
   );
 };
 
-const fieldStyle: React.CSSProperties = {
-  width: '100%',
-  padding: '0.9rem 1rem',
-  borderRadius: 8,
-  border: '1px solid var(--glass-border)',
-  background: 'var(--surface)',
-  color: 'var(--text)',
-  outline: 'none',
-};
+const partnerTypeLabel = (partner: Professional | null) => partner ? `${partner.type} - ${partner.city}` : 'Professional';
 
 export default ContractorOS;

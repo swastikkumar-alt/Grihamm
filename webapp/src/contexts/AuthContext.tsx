@@ -1,12 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import {
-  type User as FirebaseUser,
-  signInWithPopup,
-  signOut,
-  onAuthStateChanged,
-} from 'firebase/auth';
-import { auth, googleProvider } from '../firebase';
-import { supabase } from '../lib/supabase';
+import type { User as SupabaseUser, Session } from '@supabase/supabase-js';
+import { supabase, hasSupabaseConfig } from '../lib/supabase';
 
 export type UserRole = 'homeowner' | 'contractor' | 'designer' | 'admin';
 
@@ -44,17 +38,17 @@ interface AuthContextType {
   userProfile: UserProfile | null;
   loading: boolean;
   login: () => Promise<void>;
-  loginAsRole: (role: UserRole, emailOverride?: string) => Promise<void>;
   logout: () => Promise<void>;
   updateProfile: (data: Partial<UserProfile>) => Promise<void>;
   refreshProfile: () => Promise<void>;
-  isFirebaseConfigured: boolean;
+  isAuthConfigured: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
-export const SUPER_ADMIN_EMAIL = 'swastik.kumar@aegis.edu.in';
-const LOCAL_PROFILE_KEY = 'grihammUserProfiles';
-const LOCAL_USER_KEY = 'grihammLocalUser';
+const configuredAdminEmails = String(import.meta.env.VITE_SUPER_ADMIN_EMAILS || '')
+  .split(',')
+  .map(email => email.trim().toLowerCase())
+  .filter(Boolean);
 
 type UserProfileRow = {
   uid: string;
@@ -78,44 +72,7 @@ type UserProfileRow = {
   certifications: string | null;
 };
 
-const readProfileStore = (): Record<string, UserProfile> => {
-  try {
-    const rawStore = window.localStorage.getItem(LOCAL_PROFILE_KEY);
-    if (!rawStore) return {};
-    const parsedStore = JSON.parse(rawStore);
-    return parsedStore && typeof parsedStore === 'object' ? parsedStore : {};
-  } catch {
-    return {};
-  }
-};
-
-const writeProfileStore = (profiles: Record<string, UserProfile>) => {
-  window.localStorage.setItem(LOCAL_PROFILE_KEY, JSON.stringify(profiles));
-};
-
-const readLocalUser = (): AuthUser | null => {
-  try {
-    const rawUser = window.localStorage.getItem(LOCAL_USER_KEY);
-    if (!rawUser) return null;
-    const parsedUser = JSON.parse(rawUser);
-    return parsedUser && typeof parsedUser === 'object' ? parsedUser : null;
-  } catch {
-    return null;
-  }
-};
-
-const writeLocalUser = (user: AuthUser) => {
-  window.localStorage.setItem(LOCAL_USER_KEY, JSON.stringify(user));
-};
-
-const toAuthUser = (user: FirebaseUser): AuthUser => ({
-  uid: user.uid,
-  displayName: user.displayName,
-  email: user.email,
-  photoURL: user.photoURL,
-});
-
-const isSuperAdminEmail = (email?: string | null) => email?.toLowerCase() === SUPER_ADMIN_EMAIL;
+const isSuperAdminEmail = (email?: string | null) => Boolean(email && configuredAdminEmails.includes(email.toLowerCase()));
 
 const resolveAllowedRole = (role: UserRole, email?: string | null): UserRole => {
   if (isSuperAdminEmail(email)) return 'admin';
@@ -134,6 +91,16 @@ const normalizeProfile = (profile: UserProfile, user: AuthUser): UserProfile => 
   role: resolveAllowedRole(profile.role, user.email),
 });
 
+const publicProfilePatch = (data: Partial<UserProfile>): Partial<UserProfile> => {
+  const safeData = { ...data };
+  delete safeData.role;
+  delete safeData.uid;
+  delete safeData.email;
+  delete safeData.displayName;
+  delete safeData.photoURL;
+  return safeData;
+};
+
 const createInitialProfile = (user: AuthUser): UserProfile => ({
   uid: user.uid,
   displayName: user.displayName,
@@ -143,13 +110,6 @@ const createInitialProfile = (user: AuthUser): UserProfile => ({
   academyEnrolled: false,
   profileCompleted: false,
 });
-
-const roleLabel: Record<UserRole, string> = {
-  homeowner: 'Customer',
-  contractor: 'Partner',
-  designer: 'Interior Designer',
-  admin: 'Admin',
-};
 
 const profileToRow = (profile: UserProfile): UserProfileRow => ({
   uid: profile.uid,
@@ -195,10 +155,15 @@ const rowToProfile = (row: UserProfileRow): UserProfile => ({
   certifications: row.certifications || undefined,
 });
 
+const toAuthUser = (user: SupabaseUser): AuthUser => ({
+  uid: user.id,
+  displayName: user.user_metadata?.full_name || user.user_metadata?.name || null,
+  email: user.email || null,
+  photoURL: user.user_metadata?.avatar_url || user.user_metadata?.picture || null,
+});
+
 const readStoredProfile = async (uid: string): Promise<UserProfile | null> => {
-  if (!supabase) {
-    return readProfileStore()[uid] || null;
-  }
+  if (!supabase) return null;
 
   const { data, error } = await supabase
     .from('user_profiles')
@@ -211,12 +176,7 @@ const readStoredProfile = async (uid: string): Promise<UserProfile | null> => {
 };
 
 const writeStoredProfile = async (profile: UserProfile) => {
-  if (!supabase) {
-    const profiles = readProfileStore();
-    profiles[profile.uid] = profile;
-    writeProfileStore(profiles);
-    return;
-  }
+  if (!supabase) return;
 
   const { error } = await supabase
     .from('user_profiles')
@@ -251,48 +211,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
 
   const login = async () => {
-    if (!auth || !googleProvider) {
-      await loginAsRole('homeowner');
+    if (!supabase) {
+      console.error('Supabase is not configured. Cannot sign in.');
       return;
     }
 
-    try {
-      await signInWithPopup(auth, googleProvider);
-    } catch (error) {
-      console.error('Login failed:', error);
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: window.location.origin,
+      },
+    });
+
+    if (error) {
+      console.error('Google Sign-In failed:', error.message);
     }
-  };
-
-  const loginAsRole = async (role: UserRole, emailOverride?: string) => {
-    const requestedEmail = emailOverride?.trim().toLowerCase();
-    const safeRole = resolveAllowedRole(role, requestedEmail);
-    const localUser: AuthUser = {
-      uid: requestedEmail ? `local-${requestedEmail}` : `local-${safeRole}`,
-      displayName: roleLabel[safeRole],
-      email: requestedEmail || `${safeRole}@local.grihamm`,
-      photoURL: null,
-    };
-
-    const profile: UserProfile = {
-      ...localUser,
-      role: safeRole,
-      academyEnrolled: false,
-      profileCompleted: true,
-      occupation: safeRole === 'homeowner' ? 'Customer / Property Owner' : roleLabel[safeRole],
-    };
-
-    await writeStoredProfile(profile);
-    writeLocalUser(localUser);
-    setCurrentUser(localUser);
-    setUserProfile(profile);
   };
 
   const logout = async () => {
     try {
-      if (auth) {
-        await signOut(auth);
+      if (supabase) {
+        await supabase.auth.signOut();
       }
-      window.localStorage.removeItem(LOCAL_USER_KEY);
       setCurrentUser(null);
       setUserProfile(null);
     } catch (error) {
@@ -308,11 +248,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       displayName: currentUser.displayName,
       email: currentUser.email,
       photoURL: currentUser.photoURL,
-      role: inferInitialRole(currentUser),
       academyEnrolled: false,
       profileCompleted: false,
       ...userProfile,
-      ...data,
+      ...publicProfilePatch(data),
+      role: resolveAllowedRole(userProfile?.role || inferInitialRole(currentUser), currentUser.email),
     };
     const nextProfile = normalizeProfile(mergedProfile, currentUser);
 
@@ -349,21 +289,38 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     };
 
-    if (!auth) {
-      void applyUser(readLocalUser());
+    if (!supabase) {
+      queueMicrotask(() => {
+        if (isActive) setLoading(false);
+      });
       return () => {
         isActive = false;
       };
     }
 
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      const authUser = user ? toAuthUser(user) : null;
-      void applyUser(authUser);
+    // Check for existing session on mount
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
+        void applyUser(toAuthUser(session.user));
+      } else {
+        if (isActive) setLoading(false);
+      }
     });
+
+    // Listen for auth state changes (login, logout, token refresh)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (_event: string, session: Session | null) => {
+        if (session?.user) {
+          void applyUser(toAuthUser(session.user));
+        } else {
+          void applyUser(null);
+        }
+      }
+    );
 
     return () => {
       isActive = false;
-      unsubscribe();
+      subscription.unsubscribe();
     };
   }, []);
 
@@ -372,11 +329,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     userProfile,
     loading,
     login,
-    loginAsRole,
     logout,
     updateProfile,
     refreshProfile,
-    isFirebaseConfigured: Boolean(auth),
+    isAuthConfigured: hasSupabaseConfig,
   };
 
   return (

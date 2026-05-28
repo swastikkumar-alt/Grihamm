@@ -59,7 +59,7 @@ const legalContent: Record<LegalPageType, {
       },
       {
         title: 'Storage and security',
-        text: 'Platform data is stored in Supabase, while Google sign-in is handled through Firebase Auth. Access controls, backups, and operational monitoring should be reviewed before production launch.',
+        text: 'Platform data, file metadata, and Google sign-in are handled through Supabase. Access controls, backups, and operational monitoring should be reviewed before production launch.',
       },
       {
         title: 'User requests',

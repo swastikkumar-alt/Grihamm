@@ -296,6 +296,72 @@ button {
   transform: rotate(15deg);
 }
 
+.nav-wallet {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--glass-border);
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--text);
+}
+
+.nav-wallet:hover,
+.nav-wallet:focus-visible {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.nav-wallet-popover {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  z-index: 1002;
+  display: grid;
+  gap: 0.35rem;
+  width: min(280px, calc(100vw - 1.5rem));
+  padding: 0.85rem;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: var(--shadow-lg);
+  color: var(--text);
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(6px);
+  transition: opacity 0.2s var(--ease), transform 0.2s var(--ease);
+}
+
+.nav-wallet:hover .nav-wallet-popover,
+.nav-wallet:focus-visible .nav-wallet-popover {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0);
+}
+
+.nav-wallet-popover strong {
+  color: var(--text);
+  font-family: var(--font-serif);
+  font-size: 1.35rem;
+  line-height: 1;
+}
+
+.nav-wallet-popover small,
+.nav-wallet-popover em {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  font-style: normal;
+  line-height: 1.45;
+}
+
+.nav-wallet-popover em {
+  color: var(--primary-dark);
+  font-weight: 800;
+}
+
 .nav-divider {
   height: 20px;
   width: 1px;
@@ -501,6 +567,43 @@ button {
 /* ───────────────────────────────────
    FOOTER
    ─────────────────────────────────── */
+.site-partner-band {
+  padding: 2rem 0 0;
+  background: var(--background);
+}
+
+.site-partner-band-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.25rem;
+  padding: 1.15rem 1.25rem;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+
+.site-partner-copy {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.site-partner-copy h2 {
+  max-width: 560px;
+  color: var(--text);
+  font-family: var(--font-serif);
+  font-size: clamp(1.25rem, 2.2vw, 1.75rem);
+  letter-spacing: 0;
+}
+
+.site-partner-copy p {
+  max-width: 660px;
+  color: var(--text-muted);
+  font-size: 0.88rem;
+  line-height: 1.6;
+}
+
 .site-footer {
   padding: 3rem 0 2rem;
   background: var(--surface);
@@ -631,6 +734,19 @@ button {
     font-size: 0.65rem;
   }
 
+  .nav-wallet-popover {
+    right: -92px;
+  }
+
+  .site-partner-band-inner {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .site-partner-band-inner .btn-primary {
+    text-align: center;
+  }
+
   .site-footer {
     padding: 2rem 0 1.5rem;
   }
@@ -685,4 +801,12 @@ button {
   height: 48px;
   width: auto;
   transition: var(--transition);
+}
+
+.route-loading {
+  min-height: 60vh;
+  padding-top: 140px;
+  text-align: center;
+  color: var(--text-muted);
+  background: var(--background);
 }
