@@ -1,0 +1,12 @@
+{
+  "navigationFallback": {
+    "rewrite": "/index.html",
+    "exclude": [
+      "/assets/*",
+      "/favicon.svg",
+      "/hero-bg.png",
+      "/logo.png",
+      "/scene_data.json"
+    ]
+  }
+}
