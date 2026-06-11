@@ -127,7 +127,7 @@ const en = {
   common,
   nav: {
     login: 'Login',
-    consult: 'Consult',
+    consult: 'Start a project',
     signedInAs: 'Signed in as',
     profileSettings: 'Profile settings',
     dashboard: 'Dashboard',
@@ -149,6 +149,8 @@ const en = {
     privacy: 'Privacy',
     about: 'About us',
     home: 'Home',
+    callGrihamm: 'Call Grihamm',
+    emailGrihamm: 'Email Grihamm',
   },
   booking: {
     tabs: { book: 'Book', contractors: 'Contractors' },
@@ -389,8 +391,7 @@ const en = {
   contactBot: {
     open: 'Open contact assistant',
     eyebrow: 'Contact Grihamm',
-    title: 'Share your contact details',
-    prompt: 'Tell us how to reach you and what you need. The operations team will call back with the next step.',
+    prompt: 'Our team will reach you within a few hours.',
     name: 'Name',
     namePlaceholder: 'Your full name',
     phone: 'Phone',

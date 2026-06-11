@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react';
-import { Mail, MessageCircle, Phone, Send, X } from 'lucide-react';
+import { MessageCircle, Send, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../contexts/AuthContext';
 import { api } from '../lib/api';
@@ -89,11 +89,10 @@ const ContactBot = () => {
   return (
     <div className="contact-bot">
       {open && (
-        <section className="contact-bot-panel" aria-label={t('contactBot.title')}>
+        <section className="contact-bot-panel" aria-label={t('contactBot.eyebrow')}>
           <header>
             <div>
               <span>{t('contactBot.eyebrow')}</span>
-              <h2>{t('contactBot.title')}</h2>
             </div>
             <button type="button" onClick={() => setOpen(false)} aria-label={t('common.close')}>
               <X size={17} />
@@ -137,11 +136,6 @@ const ContactBot = () => {
               {submitting ? t('contactBot.sending') : t('contactBot.send')}
             </button>
           </form>
-
-          <footer>
-            <a href="tel:+918867683286"><Phone size={13} /> +91 88676 83286</a>
-            <a href="mailto:hello@grihamm.com"><Mail size={13} /> hello@grihamm.com</a>
-          </footer>
         </section>
       )}
 

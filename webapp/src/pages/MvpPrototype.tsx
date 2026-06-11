@@ -781,7 +781,7 @@ const MvpPrototype = () => {
     <div className="mvp-shell">
       <AppTabs activeTab={activeTab} onChange={setActiveTab} />
 
-      <main className="mvp-container">
+      <main id="start-project" className="mvp-container">
         <Notice error={error} message={message} />
         {loading && <div className="mvp-empty">Loading Supabase data...</div>}
 

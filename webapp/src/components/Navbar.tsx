@@ -30,13 +30,14 @@ const Navbar = ({ isDark, toggleTheme }: { isDark: boolean; toggleTheme: () => v
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [isUserMenuOpen]);
 
-  const handleConsult = (event: React.MouseEvent<HTMLButtonElement>) => {
+  const handleStartProject = (event: React.MouseEvent<HTMLButtonElement>) => {
     event.preventDefault();
-    const target = document.getElementById('contact');
+    const targetId = 'start-project';
+    const target = document.getElementById(targetId);
     if (target) {
       target.scrollIntoView({ behavior: 'smooth' });
     } else {
-      window.location.href = '/#contact';
+      window.location.href = `/#${targetId}`;
     }
   };
 
@@ -188,8 +189,8 @@ const Navbar = ({ isDark, toggleTheme }: { isDark: boolean; toggleTheme: () => v
           )}
 
           <button
-            id="consult-btn"
-            onClick={handleConsult}
+            id="start-project-btn"
+            onClick={handleStartProject}
             className="btn-primary"
           >
             {t('nav.consult')}

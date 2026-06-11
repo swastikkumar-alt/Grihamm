@@ -113,7 +113,8 @@ function App() {
               <div id="contact" className="site-footer-links">
                 <span className="site-footer-kicker">{t('nav.footerContact')}</span>
                 <Link to="/#contact">Contact Grihamm</Link>
-                <a href="mailto:hello@grihamm.com">hello@grihamm.com</a>
+                <a href="tel:+918867683286">{t('nav.callGrihamm')}: +91 88676 83286</a>
+                <a href="mailto:hello@grihamm.com">{t('nav.emailGrihamm')}: hello@grihamm.com</a>
               </div>
             </div>
             <div className="container site-footer-bottom">
