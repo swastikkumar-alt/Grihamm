@@ -410,27 +410,78 @@ const en = {
     },
   },
   about: {
-    title: 'We are building the proof layer for interior execution.',
-    intro: 'Grihamm connects customers with verified interior designers and contractors, keeps money tied to milestones, and turns every site update into an auditable project record.',
+    title: "Interior projects shouldn't depend on trust alone.",
+    intro: 'Grihamm is a trust-first platform for interior execution. We help customers and professionals run projects on systems, transparency, and accountability.',
     whoTitle: 'Who we are',
-    whoText: 'Grihamm is an execution-first home and commercial interiors platform for customers who need clarity, reviewed partners, and evidence-backed progress instead of scattered calls and informal promises.',
+    whoText: 'Grihamm is a trust-first platform for interior execution, built for customers who need clarity and professionals who want to grow through documented work.',
     visionTitle: 'Vision',
-    visionText: 'To make interiors execution in India transparent, trackable, and professionally accountable across homes, offices, retail spaces, clinics, studios, and commercial properties.',
+    visionText: "To become India's trust infrastructure for interiors across homes, offices, retail spaces, clinics, studios, and commercial properties.",
     missionTitle: 'Mission',
-    missionText: 'We match customers with reviewed partners, capture the exact work required, protect payments through escrow-style wallet tracking, and keep every milestone tied to photos, remarks, audits, and admin oversight.',
+    missionText: 'To build confidence for customers and growth for professionals by making scope, progress, communication, and payments clear from the first brief to handover.',
     standardsTitle: 'Operating standards',
     trustTitle: 'Trust model',
+    proofText: 'Verified partners. Structured execution. Transparent tracking. Accountable payments.',
     cta: 'Book a partner',
     partnerCta: 'Apply as partner',
+    pillarsEyebrow: 'What makes Grihamm different',
+    pillarsTitle: 'Four pillars for reliable execution.',
+    pillars: [
+      {
+        title: 'Verified partners',
+        text: 'Identity, credentials, warranties, and reference projects are reviewed before customers choose a professional.'
+      },
+      {
+        title: 'Structured execution',
+        text: 'Every project starts with clear scope, timelines, budgets, preferences, and measurable milestones.'
+      },
+      {
+        title: 'Transparent tracking',
+        text: 'Photos, updates, approvals, files, and communication stay connected to one project record.'
+      },
+      {
+        title: 'Accountable payments',
+        text: 'Funds are linked to visible progress instead of verbal commitments or scattered follow-ups.'
+      }
+    ],
     standards: [
-      'Every partner profile records city, service areas, work categories, pricing, GSTIN, languages, capacity, warranty policy, and reference work.',
-      'Every booking captures project type, space type, requested work, budget, dates, files, visit preference, and optional address.',
-      'Every project gives customers and partners one proof ledger for updates, images, remarks, audits, and wallet funding.'
+      {
+        title: 'Verified partner profiles',
+        text: 'Every partner profile includes service areas, expertise, pricing, business details, warranties, and reference projects.'
+      },
+      {
+        title: 'Structured project briefs',
+        text: 'Every booking captures scope, budget, timelines, preferences, and supporting files to reduce misunderstandings.'
+      },
+      {
+        title: 'One project record',
+        text: 'All updates, images, comments, approvals, and payment milestones are maintained in one transparent project timeline.'
+      }
     ],
     trust: [
-      'Funds stay visible in the customer wallet until milestone evidence is reviewed.',
-      'Customers can leave remarks directly on partner updates.',
-      'Admin can pause listings, review users, and audit project records without changing the customer-selected contractor.'
+      {
+        title: 'Milestone-based payments',
+        text: 'Payments remain visible and are released against completed milestones.'
+      },
+      {
+        title: 'Transparent communication',
+        text: 'Customers can review updates and leave remarks directly within the project.'
+      },
+      {
+        title: 'Platform oversight',
+        text: 'Grihamm maintains accountability through partner reviews, project audits, and operational safeguards.'
+      }
+    ],
+    whyTitle: 'Why Grihamm exists',
+    whyText: 'Interior projects rarely fail because talent is missing. They fail when scope, updates, proof, and payments are not transparent enough for everyone to stay aligned.',
+    manifesto: "Interior projects shouldn't depend on trust alone. They should run on systems, transparency, and accountability.",
+    principlesEyebrow: 'Our principles',
+    principlesTitle: 'The rules behind the platform.',
+    principles: [
+      'Transparency over assumptions.',
+      'Systems over promises.',
+      'Progress over opinions.',
+      'Documentation over disputes.',
+      'Trust through accountability.'
     ],
   },
   legal: {
