@@ -1105,11 +1105,28 @@ export const api = {
     return api.bootstrap({ uid: body.actorUid, role: 'homeowner' });
   },
 
-  fundProjectWallet: async (body: { projectId: string; actorUid?: string | null; amount: number; provider?: string; providerReference?: string; note?: string }) => {
+  fundProjectWallet: async (body: { projectId: string; actorUid?: string | null; amount: number; transactionType?: 'fund' | 'release' | 'refund'; provider?: string; providerReference?: string; note?: string }) => {
     const database = getSupabaseClient();
     const amount = Math.round(Number(body.amount || 0));
     if (!body.projectId) throw new Error('Project is required to fund the wallet.');
     if (!amount || amount <= 0) throw new Error('Enter a valid funding amount.');
+
+    if (body.transactionType && body.transactionType !== 'fund') {
+      const transactionResult = await database.from('wallet_transactions').insert({
+        id: createId('WAL'),
+        project_id: body.projectId,
+        actor_uid: body.actorUid,
+        amount,
+        transaction_type: body.transactionType,
+        status: 'recorded',
+        provider: body.provider || 'manual',
+        provider_reference: body.providerReference || '',
+        note: body.note || '',
+        created_at: nowIso(),
+      });
+      assertOk(transactionResult.error);
+      return api.bootstrap({ uid: body.actorUid, role: 'admin' });
+    }
 
     const rpcResult = await database.rpc('record_wallet_funding', {
       p_project_id: body.projectId,
@@ -1119,7 +1136,7 @@ export const api = {
       p_note: body.note || '',
     });
     if (!rpcResult.error) {
-      return api.bootstrap({ uid: body.actorUid, role: 'homeowner' });
+      return api.bootstrap({ uid: body.actorUid, role: 'admin' });
     }
     if (!/record_wallet_funding|schema cache|does not exist|could not find/i.test(rpcResult.error.message)) {
       assertOk(rpcResult.error);
@@ -1155,7 +1172,7 @@ export const api = {
       .eq('id', body.projectId);
     assertOk(projectResult.error);
 
-    return api.bootstrap({ uid: body.actorUid, role: 'homeowner' });
+    return api.bootstrap({ uid: body.actorUid, role: 'admin' });
   },
 
   updateAuditStatus: async (id: string, status: string) => {

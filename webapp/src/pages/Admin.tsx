@@ -26,6 +26,13 @@ const Admin = () => {
   const [activeTab, setActiveTab] = useState<AdminTab>('projects');
   const [notice, setNotice] = useState('');
   const [certificationDrafts, setCertificationDrafts] = useState<Record<string, string>>({});
+  const [walletForm, setWalletForm] = useState({
+    projectId: '',
+    amount: 0,
+    type: 'fund' as 'fund' | 'release' | 'refund',
+    providerReference: '',
+    note: ''
+  });
   const [professionalForm, setProfessionalForm] = useState({
     name: '',
     type: 'Contractor' as ProfessionalType,
@@ -181,6 +188,24 @@ const Admin = () => {
       bio: '',
     });
     setNotice('Professional added and listed.');
+  };
+
+  const submitWalletTransaction = async () => {
+    if (!walletForm.projectId || walletForm.amount <= 0) {
+      setNotice('Valid project and amount are required.');
+      return;
+    }
+    const nextData = await api.fundProjectWallet({
+      projectId: walletForm.projectId,
+      amount: walletForm.amount,
+      transactionType: walletForm.type,
+      provider: 'manual',
+      providerReference: walletForm.providerReference,
+      note: walletForm.note,
+    });
+    replaceData(nextData);
+    setWalletForm({ projectId: '', amount: 0, type: 'fund', providerReference: '', note: '' });
+    setNotice('Wallet transaction recorded.');
   };
 
   return (
@@ -509,6 +534,24 @@ const Admin = () => {
             {activeTab === 'wallet' && (
               <section className="dashboard-panel admin-panel">
                 <h2>{t('admin.walletPayments')}</h2>
+                <div className="admin-form-stack" style={{ marginBottom: '24px' }}>
+                  <h3>Record a Transaction</h3>
+                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                    <select className="admin-input" value={walletForm.projectId} onChange={event => setWalletForm(prev => ({ ...prev, projectId: event.target.value }))}>
+                      <option value="">Select Project</option>
+                      {data.projects.map(p => <option key={p.id} value={p.id}>{p.id} - {p.customerName}</option>)}
+                    </select>
+                    <select className="admin-input" value={walletForm.type} onChange={event => setWalletForm(prev => ({ ...prev, type: event.target.value as 'fund' | 'release' | 'refund' }))}>
+                      <option value="fund">Fund Escrow</option>
+                      <option value="release">Release from Escrow</option>
+                      <option value="refund">Refund from Escrow</option>
+                    </select>
+                    <input className="admin-input" type="number" placeholder="Amount" value={walletForm.amount || ''} onChange={event => setWalletForm(prev => ({ ...prev, amount: Number(event.target.value) }))} />
+                    <input className="admin-input" placeholder="Reference ID (e.g. UTR)" value={walletForm.providerReference} onChange={event => setWalletForm(prev => ({ ...prev, providerReference: event.target.value }))} />
+                    <input className="admin-input" placeholder="Note" value={walletForm.note} onChange={event => setWalletForm(prev => ({ ...prev, note: event.target.value }))} />
+                    <button className="btn-primary" onClick={() => void submitWalletTransaction()}>Record</button>
+                  </div>
+                </div>
                 <div className="dashboard-table-wrap">
                   <table className="dashboard-table">
                     <thead><tr>{(t('admin.walletHeaders', { returnObjects: true }) as string[]).map(head => <th key={head}>{head}</th>)}</tr></thead>

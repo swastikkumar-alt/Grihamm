@@ -6,17 +6,10 @@ import LanguageSelect from '../components/LanguageSelect';
 import { api, formatCurrency, type AuditRequest, type Professional, type Project, type ProjectFile, type Remark, type SiteUpdate, type WalletTransaction } from '../lib/api';
 import { useAuth, type AuthUser, type UserProfile } from '../contexts/AuthContext';
 import { useGrihammData } from '../lib/useGrihammData';
-import { getRazorpayKeyId, openRazorpayCheckout } from '../lib/razorpay';
 import { labelKey } from '../i18n';
 import './Dashboard.css';
 
 type CustomerTab = 'projects' | 'wallet' | 'settings';
-type FundingRequest = {
-  amount: number;
-  reference: string;
-  provider: string;
-  note: string;
-};
 
 const customerTabs: { id: CustomerTab; label: string; icon: ReactNode }[] = [
   { id: 'projects', label: 'Projects & Tracker', icon: <ClipboardCheck size={16} /> },
@@ -96,7 +89,6 @@ const ProjectOS = () => {
   const [auditReason, setAuditReason] = useState('');
   const [preferredSlot, setPreferredSlot] = useState('');
   const [notice, setNotice] = useState<{ tone: 'success' | 'warning'; text: string } | null>(null);
-  const [funding, setFunding] = useState(false);
 
   const projects = data?.projects || [];
   const selectedProject = projects.find(project => project.id === selectedProjectId) || projects[0] || null;
@@ -155,31 +147,6 @@ const ProjectOS = () => {
     setNotice({ tone: 'success', text: `Audit requested for ${formatCurrency(nextData.auditPrice)}.` });
   };
 
-  const fundWallet = async ({ amount, reference, provider, note }: FundingRequest) => {
-    if (!selectedProject || !currentUser) {
-      setNotice({ tone: 'warning', text: 'Sign in and select a project before funding the wallet.' });
-      return false;
-    }
-    setFunding(true);
-    try {
-      const nextData = await api.fundProjectWallet({
-        projectId: selectedProject.id,
-        actorUid: currentUser.uid,
-        amount,
-        provider,
-        providerReference: reference,
-        note,
-      });
-      replaceData(nextData);
-      setNotice({ tone: 'success', text: `Wallet funding of ${formatCurrency(amount)} was recorded on ${selectedProject.id}.` });
-      return true;
-    } catch (err) {
-      setNotice({ tone: 'warning', text: err instanceof Error ? err.message : 'Could not fund the wallet.' });
-      return false;
-    } finally {
-      setFunding(false);
-    }
-  };
 
   return (
     <div className="dashboard-shell">
@@ -251,10 +218,6 @@ const ProjectOS = () => {
               <WalletView
                 project={selectedProject}
                 transactions={walletTransactions}
-                funding={funding}
-                currentUser={currentUser}
-                userProfile={userProfile}
-                onFund={fundWallet}
               />
             )}
 
@@ -442,23 +405,12 @@ const TrackerView = ({
 const WalletView = ({
   project,
   transactions,
-  funding,
-  currentUser,
-  userProfile,
-  onFund,
 }: {
   project: Project;
   transactions: WalletTransaction[];
-  funding: boolean;
-  currentUser: AuthUser | null;
-  userProfile: UserProfile | null;
-  onFund: (request: FundingRequest) => Promise<boolean>;
 }) => {
   const { t } = useTranslation();
-  const [fundAmount, setFundAmount] = useState('');
-  const [fundReference, setFundReference] = useState('');
-  const [razorpayError, setRazorpayError] = useState('');
-  const [paying, setPaying] = useState(false);
+  const walletPercent = (value: number) => value > 0 ? `${Math.max((value / Math.max(project.budget, 1)) * 100, 3)}%` : '0%';
   const recordedTransactions = transactions.filter(transaction => transaction.status === 'recorded');
   const fundedFromLedger = recordedTransactions
     .filter(transaction => transaction.transactionType === 'fund')
@@ -472,58 +424,6 @@ const WalletView = ({
   const totalPaid = fundedFromLedger || project.escrowAmount;
   const escrow = Math.max(totalPaid - released - refunded, 0);
   const unfunded = Math.max(project.budget - totalPaid, 0);
-  const walletPercent = (value: number) => value > 0 ? `${Math.max((value / Math.max(project.budget, 1)) * 100, 3)}%` : '0%';
-  const requestedAmount = Math.round(Number(fundAmount || 0));
-  const hasRazorpayKey = Boolean(getRazorpayKeyId());
-
-  const submitFunding = async () => {
-    if (requestedAmount <= 0) return;
-    const reference = fundReference.trim();
-    const recorded = await onFund({
-      amount: requestedAmount,
-      reference,
-      provider: 'manual',
-      note: reference ? `Customer reference: ${reference}` : 'Manual customer wallet funding record',
-    });
-    if (recorded) {
-      setFundAmount('');
-      setFundReference('');
-    }
-  };
-
-  const payWithRazorpay = async () => {
-    if (requestedAmount <= 0) return;
-    setRazorpayError('');
-    setPaying(true);
-    try {
-      const response = await openRazorpayCheckout({
-        project,
-        amount: requestedAmount,
-        customerName: currentUser?.displayName || project.customerName,
-        customerEmail: currentUser?.email || '',
-        customerPhone: userProfile?.phoneNumber,
-      });
-      const noteParts = [
-        `Razorpay test payment: ${response.razorpay_payment_id}`,
-        response.razorpay_order_id ? `order: ${response.razorpay_order_id}` : '',
-        response.razorpay_signature ? 'signature received' : '',
-      ].filter(Boolean);
-      const recorded = await onFund({
-        amount: requestedAmount,
-        reference: response.razorpay_payment_id,
-        provider: 'razorpay_test',
-        note: noteParts.join('; '),
-      });
-      if (recorded) {
-        setFundAmount('');
-        setFundReference('');
-      }
-    } catch (err) {
-      setRazorpayError(err instanceof Error ? err.message : 'Razorpay checkout failed.');
-    } finally {
-      setPaying(false);
-    }
-  };
 
   return (
     <section className="dashboard-card wallet-card">
@@ -546,41 +446,6 @@ const WalletView = ({
         <div><span>{t('dashboard.unfunded')}</span><strong>{formatCurrency(unfunded)}</strong></div>
       </div>
 
-      <div className="wallet-funding-panel">
-        <div>
-          <h3>{t('dashboard.fundTitle')}</h3>
-          <p>{t('dashboard.fundText')}</p>
-        </div>
-        <div className="wallet-funding-form">
-          <label>
-            {t('common.amount')}
-            <input
-              type="number"
-              min="1"
-              inputMode="numeric"
-              value={fundAmount}
-              onChange={event => setFundAmount(event.target.value)}
-              placeholder={unfunded ? String(unfunded) : '50000'}
-            />
-          </label>
-          <label>
-            {t('dashboard.paymentReference')}
-            <input
-              value={fundReference}
-              onChange={event => setFundReference(event.target.value)}
-              placeholder="UPI, bank transfer, gateway, or receipt ID"
-            />
-          </label>
-          <button className="btn-primary" type="button" disabled={funding || requestedAmount <= 0} onClick={() => void submitFunding()}>
-            {funding ? 'Recording...' : t('dashboard.recordReference')}
-          </button>
-          <button className="btn-outline" type="button" disabled={!hasRazorpayKey || paying || funding || requestedAmount <= 0} onClick={() => void payWithRazorpay()}>
-            {paying ? 'Opening...' : t('dashboard.payRazorpay')}
-          </button>
-        </div>
-        {!hasRazorpayKey && <div className="dashboard-alert warning compact">Add VITE_RAZORPAY_KEY_ID to enable Razorpay test checkout.</div>}
-        {razorpayError && <div className="dashboard-alert warning compact">{razorpayError}</div>}
-      </div>
 
       <div className="wallet-history">
         <div className="dashboard-section-head">
